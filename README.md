@@ -14,6 +14,26 @@ On **2026-01-27**, the code was copied to this repository.
 
 This repository started with **version v2.42** of the Xymon client.
 
+## Roadmap
+
+* Convert XymonPSClient.doc to wiki pages
+* Remove dependency for nssm.exe
+* Remove file xymonsend.ps1: this is a standalone function with old code
+* Remove xymon.ps1
+    * Data can be send to the xymon server by creating a file in the tmp directory
+    * This can also be used to download a file: is someone using this feature?
+* Integrate multiple changes from Stef Coene
+    * Download configuration files from Xymon Server
+    * Allow overriding the user xml config file via environment variable
+    * Make slowscanrate an option in the configuration file
+    * Allow sendng of usermsg and trends messages
+    * Allow multiple servers in serverUrl
+    * Adding xymonlogarchive to config file to allow for keeping and rotating the logfles
+    * Add a more flexiple scan option beside slowscan and everyscan
+    * Test connection to xymon before upgrade
+    * Allow multiple clientversion lines in configuration file
+    * Add xymon: (like bb:) for location in configuration file
+
 # Original README from sourceforge
 
 ## READ THIS FIRST
@@ -63,4 +83,5 @@ e.g. to download a Xymon configuration file you can run
 	PS C:\xymon> xymonsend "config bb-hosts" "xymonhost" >bb-hosts
 
 and then you have a copy of the bb-hosts file.
+
 

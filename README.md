@@ -14,6 +14,10 @@ On **2026-01-27**, the code was copied to this repository.
 
 This repository started with **version v2.42** of the Xymon client.
 
+## Documentation
+
+See https://github.com/xymon-monitoring/xymon-wiki/wiki#windows-powershell-client
+
 ## Roadmap
 
 * Convert XymonPSClient.doc to wiki pages
@@ -83,5 +87,6 @@ e.g. to download a Xymon configuration file you can run
 	PS C:\xymon> xymonsend "config bb-hosts" "xymonhost" >bb-hosts
 
 and then you have a copy of the bb-hosts file.
+
 
 

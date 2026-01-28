@@ -20,7 +20,7 @@ See https://github.com/xymon-monitoring/xymon-wiki/wiki#windows-powershell-clien
 
 ## Roadmap
 
-* Convert XymonPSClient.doc to wiki pages
+* ~~Convert XymonPSClient.doc to wiki pages~~
 * Remove dependency for nssm.exe
 * Remove file xymonsend.ps1: this is a standalone function with old code
 * Remove xymon.ps1
@@ -87,6 +87,7 @@ e.g. to download a Xymon configuration file you can run
 	PS C:\xymon> xymonsend "config bb-hosts" "xymonhost" >bb-hosts
 
 and then you have a copy of the bb-hosts file.
+
 
 
 

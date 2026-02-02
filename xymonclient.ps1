@@ -3084,7 +3084,9 @@ function XymonSendViaHttp($msg)
             continue
         }
 
-        $body = [byte[]][char[]]$msg
+        # This gives sometimes an error, reason unknown so switch o ::ascii.getbytes:
+        # $body = [byte[]][char[]]$msg
+        $body = [text.encoding]::ascii.getbytes($msg)
         $bodyStream.Write($body, 0, $body.Length)
 
         WriteLog "  Connecting to $($url), body length $($body.Length), timeout $($script:XymonSettings.serverHttpTimeoutMs)ms"

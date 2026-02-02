@@ -3038,7 +3038,7 @@ function XymonSendViaHttp($msg)
         catch
         {
             WriteLog "Error setting TLS options (old version of .NET?): $_"
-            return $false
+            return ''
         }
     }
 

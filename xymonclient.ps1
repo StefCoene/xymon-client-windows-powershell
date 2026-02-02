@@ -3084,7 +3084,7 @@ function XymonSendViaHttp($msg)
             continue
         }
 
-        # This gives sometimes an error, reason unknown so switch o ::ascii.getbytes:
+        # This gives sometimes an error, reason unknown so switch to ::ascii.getbytes
         # $body = [byte[]][char[]]$msg
         $body = [text.encoding]::ascii.getbytes($msg)
         $bodyStream.Write($body, 0, $body.Length)

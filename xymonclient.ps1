@@ -3382,11 +3382,11 @@ function XymonReportConfig
     #(get-process -id $PID).Threads
 }
 
-function XymonClientSections([boolean] $isSlowScan)
+function XymonClientSections([boolean] $isSlowScan, [int]$loopcount)
 {
     # maybe move XymonManageExternals to slow scan tasks
     XymonManageExternals
-    XymonExecuteExternals $isSlowScan
+    XymonExecuteExternals $isSlowScan $loopcount
 
     XymonClientVersion
     XymonUname
@@ -3768,10 +3768,10 @@ function XymonManageExternals
 
     foreach ($external in $externalConfig)
     {
-        if ($external -match '^external:(?:(\d+):)?(slowscan|everyscan):(sync|async):(.+?)(?:\|(MD5|SHA1|SHA256)\|([0-9a-f]+))?(?:\|(.+)\|(.+))?$')
+        if ($external -match '^external:(?:(\d+):)?(slowscan|everyscan|scan,\d+):(sync|async):(.+?)(?:\|(MD5|SHA1|SHA256)\|([0-9a-f]+))?(?:\|(.+)\|(.+))?$')
         {
             # $matches[1] = priority (optional) 0-99
-            # $matches[2] = slowscan/everyscan
+            # $matches[2] = slowscan/everyscan/scan,<number>
             # $matches[3] = sync/async
             # $matches[4] = URL / file location
             # $matches[5] = optional hash type
@@ -3880,7 +3880,7 @@ function XymonManageExternals
     WriteLog 'XymonManageExternals finished'
 }
 
-function XymonExecuteExternals([boolean] $isSlowscan)
+function XymonExecuteExternals([boolean] $isSlowscan, [int] $loopcount)
 {
     WriteLog 'Executing XymonExecuteExternals'
     if (!(Test-Path $script:XymonSettings.externaldatalocation))
@@ -3889,12 +3889,27 @@ function XymonExecuteExternals([boolean] $isSlowscan)
     }
     $script:externals | Sort-Object Priority, ExecutionMethod | foreach {
         WriteLog "External: $($_.ExecutionFrequency) - $($_.FullName)"
+
+        [bool] $execute = $true
+
         if (!$isSlowscan -and $_.ExecutionFrequency -eq 'slowscan')
         {
             WriteLog 'Skipping execution, this is not a slow scan'
+            $execute = $false
         }
-        else
-        {
+
+        if ($_.ExecutionFrequency -match '^scan,(\d+)' ) {
+            $rest = $loopcount % $Matches[1]
+            if ( $loopcount % $Matches[1] -eq 0 )
+            {
+               WriteLog "Execution custom scan: $loopcount % $($Matches[1]) = $rest"
+            } else {
+               WriteLog "Skipping execution custom scan: $loopcount % $($Matches[1]) = $rest"
+               $execute = $false
+            }
+        }
+
+        if ( $execute -eq $true) {
             try
             {
                 $process = $_.ProcessName
@@ -4260,7 +4275,7 @@ while ($running -eq $true) {
     WriteLog "Performing main and optional tests and building output..."
     $clout = "client $($clientname).$($script:XymonSettings.clientsoftware) $($script:XymonSettings.clientclass) XymonPS" |
         Out-String
-    $clsecs = XymonClientSections $slowscan | Out-String
+    $clsecs = XymonClientSections $slowscan $loopcount | Out-String
     $localdatetime = Get-Date
     $clout += XymonDate | Out-String
     $clout += XymonClock | Out-String

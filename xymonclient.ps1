@@ -3073,8 +3073,18 @@ function XymonSendViaHttp($msg)
             $request.Headers.Add('Authorization', "Basic $encodedAuth")
         }
 
+        # Error at line 3643: Exception calling "GetRequestStream" with "0" argument(s): "The remote name could not be resolved: 'xxxxxxxxxxxxxxxxxxx'"
+        try
+        {
+            $bodyStream = $request.GetRequestStream()
+        }
+        catch
+        {
+            WriteLog "  Exception connecting during GetRequestStream to $($url):`n$($_)"
+            continue
+        }
+
         $body = [byte[]][char[]]$msg
-        $bodyStream = $request.GetRequestStream()
         $bodyStream.Write($body, 0, $body.Length)
 
         WriteLog "  Connecting to $($url), body length $($body.Length), timeout $($script:XymonSettings.serverHttpTimeoutMs)ms"

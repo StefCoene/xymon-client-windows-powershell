@@ -1,5 +1,5 @@
 ﻿# ###################################################################################
-# 
+#
 # Xymon client for Windows
 #
 # This is a client implementation for Windows systems that support the
@@ -16,12 +16,12 @@
 #  modify it under the terms of the GNU General Public License
 #  as published by the Free Software Foundation; either version 2
 #  of the License, or (at your option) any later version.
-#  
+#
 #  This program is distributed in the hope that it will be useful,
 #  but WITHOUT ANY WARRANTY; without even the implied warranty of
 #  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #  GNU General Public License for more details.
-#  
+#
 #  You should have received a copy of the GNU General Public License
 #  along with this program; if not, write to the Free Software
 #  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
@@ -69,7 +69,7 @@ public class GetProcessOwner
 
     const int ERROR_NO_MORE_ITEMS = 259;
 
-    enum TOKEN_INFORMATION_CLASS                           
+    enum TOKEN_INFORMATION_CLASS
     {
         TokenUser = 1,
         TokenGroups,
@@ -160,14 +160,14 @@ public class GetProcessOwner
     private static bool ProcessTokenToSid(IntPtr token, out IntPtr SID)
     {
         TOKEN_USER tokUser;
-        const int bufLength = 256;            
+        const int bufLength = 256;
         IntPtr tu = Marshal.AllocHGlobal(bufLength);
         bool ret = false;
         SID = IntPtr.Zero;
         try
         {
             int cb = bufLength;
-            ret = GetTokenInformation(token, 
+            ret = GetTokenInformation(token,
                     TOKEN_INFORMATION_CLASS.TokenUser, tu, cb, ref cb);
             if (ret)
             {
@@ -187,24 +187,24 @@ public class GetProcessOwner
     }
 
     public static string GetProcessOwnerByPId(int PID)
-    {                                                                  
-        IntPtr _SID = IntPtr.Zero;                                       
-        string SID = String.Empty;                                             
-        try                                                             
-        {                                                                
+    {
+        IntPtr _SID = IntPtr.Zero;
+        string SID = String.Empty;
+        try
+        {
             Process process = Process.GetProcessById(PID);
             if (DumpUserInfo(process.Handle, out _SID))
-            {                                                                    
+            {
                 ConvertSidToStringSid(_SID, ref SID);
             }
 
             // convert SID to username
             string account = new System.Security.Principal.SecurityIdentifier(SID).Translate(typeof(System.Security.Principal.NTAccount)).ToString();
 
-            return account;                                          
-        }                                                                           
+            return account;
+        }
         catch
-        {                                                                           
+        {
             return "Unknown";
         }
     }
@@ -240,7 +240,7 @@ $getprocesscmdline = @'
             );
 
         private const int FLS_MAXIMUM_AVAILABLE = 128;
-        
+
         //Win32
         //private const int GDI_HANDLE_BUFFER_SIZE = 34;
         //Win64
@@ -702,8 +702,8 @@ $volumeinfo = @'
         }
 
         public class Volume
-        {            
-            public string VolumeGUID;            
+        {
+            public string VolumeGUID;
             public string FileSys;
             public DriveType DriveType;
             public uint DriveTypeId;
@@ -711,7 +711,7 @@ $volumeinfo = @'
             public string MountPoint;
             public string FileSystemName;
             public string VolumeName;
-            
+
             public ulong TotalBytes;
             public ulong FreeBytes;
             public ulong UsedBytes;
@@ -732,7 +732,7 @@ $volumeinfo = @'
                 StringBuilder volname = new StringBuilder(261);
                 StringBuilder fsname = new StringBuilder(261);
                 uint flagsDummy, maxlenDummy;
-                GetVolumeInformation(drive, volname, volname.Capacity, 
+                GetVolumeInformation(drive, volname, volname.Capacity,
                     out v.SerialNumber, out maxlenDummy, out flagsDummy, fsname, fsname.Capacity);
                 v.FileSystemName = fsname.ToString();
                 v.VolumeName = volname.ToString();
@@ -764,7 +764,7 @@ $volumeinfo = @'
 
             if (!GetVolumePathNamesForVolumeNameW(volumeDeviceName, buffer, lpcchReturnLength, ref lpcchReturnLength))
             {
-                throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());                
+                throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());
             }
 
             string[] mounts = buffer.Split('\0');
@@ -777,7 +777,7 @@ $volumeinfo = @'
                         Volume v = new Volume();
                         v.VolumeGUID = volumeDeviceName;
                         v.MountPoint = mount;
-                        v.DriveType = GetDriveType(mount);                        
+                        v.DriveType = GetDriveType(mount);
                         v.DriveTypeId = (uint)v.DriveType;
                         if (mount[0] >= 'A' && mount[0] <= 'Z')
                         {
@@ -786,7 +786,7 @@ $volumeinfo = @'
                         if (mount.Length > 3)
                         {
                             // per BBWin, replace spaces with underscore in mountpoint name
-                            v.FileSys = mount.Substring(3, mount.LastIndexOf('\\') - 3).Replace(' ', '_');                            
+                            v.FileSys = mount.Substring(3, mount.LastIndexOf('\\') - 3).Replace(' ', '_');
                         }
                         GetVolumeDetails(mount, v);
                         volumes.Add(v);
@@ -799,7 +799,7 @@ $volumeinfo = @'
                 Volume v = new Volume();
                 v.VolumeGUID = volumeDeviceName;
                 v.MountPoint = "";
-                v.DriveType = GetDriveType(volumeDeviceName);                
+                v.DriveType = GetDriveType(volumeDeviceName);
                 v.DriveTypeId = 99; // special value for unmounted
                 v.FileSys = "unmounted";
 
@@ -847,7 +847,7 @@ $getsysteminfoType = @'
             public IntPtr MinimumApplicationAddress; // (long)void*
             public IntPtr MaximumApplicationAddress; // (long)void*
             public IntPtr ActiveProcessorMask; // DWORD*
-            public uint NumberOfProcessors; // DWORD 
+            public uint NumberOfProcessors; // DWORD
             public uint ProcessorType; // DWORD
             public uint AllocationGranularity; // DWORD
             public ushort ProcessorLevel; // WORD
@@ -869,7 +869,7 @@ $getsysteminfoType = @'
 $type = Add-Type $getsysteminfoType
 
 }
-#endregion 
+#endregion
 
 function SetIfNot($obj,$key,$value)
 {
@@ -929,11 +929,11 @@ function XymonInit
 {
     if($script:XymonSettings -eq $null) {
         $script:XymonSettings = New-Object Object
-    } 
+    }
 
     $servers = $script:XymonSettings.servers
     SetIfNot $script:XymonSettings serversList $servers
-    if ($script:XymonSettings.servers -match " ") 
+    if ($script:XymonSettings.servers -match " ")
     {
         $script:XymonSettings.serversList = $script:XymonSettings.servers.Split(" ")
     }
@@ -949,7 +949,7 @@ function XymonInit
 
     $wanteddisks = $script:XymonSettings.wanteddisks
     SetIfNot $script:XymonSettings wanteddisksList $wanteddisks
-    if ($script:XymonSettings.wanteddisks -match " ") 
+    if ($script:XymonSettings.wanteddisks -match " ")
     {
         $script:XymonSettings.wanteddisksList = $script:XymonSettings.wanteddisks.Split(" ")
     }
@@ -961,21 +961,21 @@ function XymonInit
     # Params for default clientname
     SetIfNot $script:XymonSettings clientfqdn 1 # 0 = unqualified, 1 = fully-qualified
     SetIfNot $script:XymonSettings clientlower 1 # 0 = unqualified, 1 = fully-qualified
-    
-    if ($script:XymonSettings.clientname -eq $null -or $script:XymonSettings.clientname -eq "") 
-    { 
+
+    if ($script:XymonSettings.clientname -eq $null -or $script:XymonSettings.clientname -eq "")
+    {
         # set name based on rules; first try IP properties
         $ipProperties = [System.Net.NetworkInformation.IPGlobalProperties]::GetIPGlobalProperties()
         $clname  = $ipProperties.HostName
-        if ($clname -ne '' -and $script:XymonSettings.clientfqdn -eq 1 -and ($ipProperties.DomainName -ne $null)) 
-        { 
+        if ($clname -ne '' -and $script:XymonSettings.clientfqdn -eq 1 -and ($ipProperties.DomainName -ne $null))
+        {
             $clname += "." + $ipProperties.DomainName
         }
         if ($clname -eq '')
         {
             # try environment
             $clname = $Env:COMPUTERNAME
-            if ($clname -ne '' -and $script:XymonSettings.clientfqdn -eq 1 -and ($Env:USERDNSDOMAIN -ne $null)) 
+            if ($clname -ne '' -and $script:XymonSettings.clientfqdn -eq 1 -and ($Env:USERDNSDOMAIN -ne $null))
             {
                 $clname += '.' + $Env:USERDNSDOMAIN
             }
@@ -1040,7 +1040,7 @@ function XymonInit
     "netifs","svcprocs","localdatetime","uptime","usercount",`
     "XymonProcsCpu","XymonProcsCpuTStart","XymonProcsCpuElapsed") `
     | %{ if (get-variable -erroraction SilentlyContinue $_) { Remove-Variable $_ }}
-    
+
 }
 
 function XymonProcsCPUUtilisation
@@ -1064,7 +1064,7 @@ function XymonProcsCPUUtilisation
         $script:XymonProcsCpuTStart = (Get-Date).Ticks
     }
     $script:XymonProcsCpuElapsed *= $script:numcores
-    
+
     foreach ($p in $script:procs) {
         # store the process name in XymonProcsCpu
         # and if $p.name differs but id matches, need to pick up new command line etc and zero counters
@@ -1158,7 +1158,7 @@ function XymonCollectInfo([boolean] $isSlowScan)
     try
     {
         $volumes = [VolumeInfo]::GetVolumes()
-        foreach ($disktype in $script:XymonSettings.wanteddisksList) { 
+        foreach ($disktype in $script:XymonSettings.wanteddisksList) {
             $mydisks += @( ($volumes | where { $_.DriveTypeId -eq $disktype } ))
         }
     }
@@ -1185,7 +1185,7 @@ function XymonCollectInfo([boolean] $isSlowScan)
     WriteLog "XymonCollectInfo: Date processing (uses WMI data)"
     $script:localdatetime = $osinfo.ConvertToDateTime($osinfo.LocalDateTime)
     $script:uptime = $localdatetime - $osinfo.ConvertToDateTime($osinfo.LastBootUpTime)
-    
+
     WriteLog "XymonCollectInfo: Adding CPU usage etc to main process data"
     XymonProcesses
 
@@ -1232,7 +1232,7 @@ function du([string]$dir,[int]$clsize=0)
         if( $_.Attributes -like "*Directory*" ) {
            $dulist += du ("{0}\{1}" -f [string]$dir,$_.Name) $clsize | out-string
            $sum += $dulist.Split("`n")[-2].Split("`t")[0] # get size for subdir
-        } else { 
+        } else {
            $sum += filesize $_ $clsize
         }
     }
@@ -1243,7 +1243,7 @@ function XymonPrintProcess($pobj, $name, $pct)
 {
     $pcpu = (("{0:F1}" -f $pct) + "`%").PadRight(8)
     $ppid = ([string]($pobj.Id)).PadRight(9)
-    
+
     if ($name.length -gt 30) { $name = $name.substring(0, 30) }
     $pname = $name.PadRight(32)
 
@@ -1302,7 +1302,7 @@ function XymonProcesses
     # gather process and timing information and add this to $script:procs
     # variable
     # XymonCpu and XymonProcs use this information to output
- 
+
     WriteLog "XymonProcesses start"
 
     foreach ($p in $script:procs)
@@ -1313,13 +1313,13 @@ function XymonProcesses
         else {
             $procname = $p.Name
         }
-           
+
         Add-Member -MemberType NoteProperty `
             -Name XymonProcessName -Value $procname `
             -InputObject $p
 
         $thisp = $script:XymonProcsCpu[$p.Id]
-        if ($thisp -ne $null -and $thisp[3] -eq $true) 
+        if ($thisp -ne $null -and $thisp[3] -eq $true)
         {
             if ($script:XymonProcsCpuElapsed -gt 0)
             {
@@ -1336,7 +1336,7 @@ function XymonProcesses
                 -Name Owner -Value $thisp[5] `
                 -InputObject $p
         }
-        else 
+        else
         {
             $usedpct = 0
         }
@@ -1348,7 +1348,7 @@ function XymonProcesses
         $elapsedRuntime = 0
         if ($p.StartTime -ne $null)
         {
-            $elapsedRuntime = ($script:localdatetime - $p.StartTime).TotalMinutes 
+            $elapsedRuntime = ($script:localdatetime - $p.StartTime).TotalMinutes
         }
         Add-Member -MemberType NoteProperty `
             -Name ElapsedSinceStart -Value $elapsedRuntime `
@@ -1397,13 +1397,13 @@ function XymonCpu
 
         $script:procs | Sort-Object -Descending { $_.CPUPercent } `
             | foreach `
-            { 
+            {
                 $skipFlag = $false
                 if ($script:clientlocalcfg_entries.ContainsKey('slimmode'))
                 {
                     if ($script:clientlocalcfg_entries.slimmode.ContainsKey('processes'))
                     {
-                        # skip this process if we are in slimmode and this process is not one of the 
+                        # skip this process if we are in slimmode and this process is not one of the
                         # requested processes
                         if ($script:clientlocalcfg_entries.slimmode.processes -notcontains $_.XymonProcessName)
                         {
@@ -1411,10 +1411,10 @@ function XymonCpu
                         }
                     }
                 }
-                
+
                 if (!$skipFlag)
                 {
-                    XymonPrintProcess $_ $_.XymonProcessName $_.CPUPercent 
+                    XymonPrintProcess $_ $_.XymonProcessName $_.CPUPercent
                 }
             }
     }
@@ -1465,7 +1465,7 @@ function XymonDisk
         $dfKB = "{0:F0}" -f ($d.FreeBytes / 1KB); $dfGB = "{0:F2}" -f ($d.FreeBytes / 1GB)
 
         $mountpoint = "/FIXED/$($d.MountPoint)"
-       
+
         "{0,-$FilesysWidth} {1,12} {2,12} {3,12} {4,9:0}% {5,-$MountpointWidth} {6,-$LabelWidth} {7}" -f `
             $d.FileSys, `
             $dsKB, `
@@ -1530,7 +1530,7 @@ function XymonMsgs
     #   {0} = log name e.g. Application
     #   {1} = milliseconds - how far back in time to go
     $filterXMLTemplate = `
-@' 
+@'
     <QueryList>
       <Query Id="0" Path="{0}">
         <Select Path="{0}">*[System[TimeCreated[timediff(@SystemTime) &lt;= {1}] and ({2})]]</Select>
@@ -1538,7 +1538,7 @@ function XymonMsgs
     </QueryList>
 '@
 
-    $eventLevels = @{ 
+    $eventLevels = @{
         '0' = 'Information';
         '1' = 'Critical';
         '2' = 'Error';
@@ -1557,7 +1557,7 @@ function XymonMsgs
     # each key is an event log name
     # each value is an array of wanted levels
     # defaults set below
-    # can be overridden by eventlogswanted config 
+    # can be overridden by eventlogswanted config
     $wantedEventLogs = `
         @{ `
             'Application' = @('Critical', 'Warning', 'Error', 'Information', 'Verbose'); `
@@ -1626,7 +1626,7 @@ function XymonMsgs
                 }
                 else
                 {
-                    # if no individual levels specified, then use the defaults - 
+                    # if no individual levels specified, then use the defaults -
                     # either specified in match 3 or script default
                     $wantedEventLogs[$log] = $wantedLevels
                 }
@@ -1669,7 +1669,7 @@ function XymonMsgs
 
                 $logFilterXML = $filterXMLTemplate -f $l, $sinceMs, ($levelcriteria -join ' or ')
                 WriteLog "Log filter $logFilterXML"
-                
+
                 try
                 {
                     WriteLog 'Setting thread/UI culture to en-US'
@@ -1695,7 +1695,7 @@ function XymonMsgs
 
                 $totalEntries = $logentries.Length
                 WriteLog "Event log $l entries since last scan: $($logentries.Length)"
-                
+
                 # filter based on clientlocal.cfg / clientconfig.cfg
                 if ($script:clientlocalcfg_entries -ne $null)
                 {
@@ -1762,10 +1762,10 @@ function XymonMsgs
                     }
                 }
 
-                if ($logentries -ne $null) 
+                if ($logentries -ne $null)
                 {
                     WriteLog "Entries to add to payload: $($logentries.Count) "
-                    foreach ($entry in $logentries) 
+                    foreach ($entry in $logentries)
                     {
                         $level = 'Unknown'
                         if ($eventLevels.ContainsKey($entry.Level.ToString()))
@@ -1777,7 +1777,7 @@ function XymonMsgs
                             "[$($entry.Id)] - " + `
                             [string]$entry.ProviderName + " - " + `
                             [string]$entry.Message + [environment]::newline
-                        
+
                         if ($payload.Length -gt $maxpayloadlength)
                         {
                             WriteLog "Payload length reached $($payload.Length), greater than $($maxpayloadlength)"
@@ -1918,7 +1918,7 @@ function XymonLogCheckFile([string]$file,$sizemax=0, $positions=6)
     else
     {
         WriteLog "Cannot open / resolve $file"
-        "ERROR: Cannot open / resolve $file" 
+        "ERROR: Cannot open / resolve $file"
     }
     WriteLog "XymonLogCheckFile finished"
 }
@@ -1942,7 +1942,7 @@ function XymonDirSize
 
                 if (test-path $_ -PathType Container)
                 {
-                    # could use "get-childitem ... -recurse | measure ..." here 
+                    # could use "get-childitem ... -recurse | measure ..." here
                     # but that does not work well when there are many files/subfolders
                     $size = $objFSO.GetFolder($_).Size
                 }
@@ -1984,7 +1984,7 @@ function XymonDirSize
                     $alertcolour = 'green'
                 }
 
-                # report out - 
+                # report out -
                 #  {0} = colour (matches[4])
                 #  {1} = folder name
                 #  {2} = folder size
@@ -1994,7 +1994,7 @@ function XymonDirSize
                     'height="16" width="16" border="0">' +`
                     '{1} size is {2} bytes. Alert if {3} {4} bytes.<br>') `
                     -f $alertcolour, $_, $size, $conditiontype, $matches[3], $script:XymonSettings.servergiflocation)
-                # set group colour to colour if it is not already set to a 
+                # set group colour to colour if it is not already set to a
                 # higher alert state colour
                 if ($groupcolour -eq 'green' -and $alertcolour -eq 'yellow')
                 {
@@ -2039,7 +2039,7 @@ function XymonDirTime
                 {
                     $minutesdiff = ((get-date) - (Get-Item $_ -ErrorAction Stop).LastWriteTime).TotalMinutes
                 }
-                catch 
+                catch
                 {
                     $outputtext += (('<img src="{2}{0}.gif" alt="{0}"' +`
                         'height="16" width="16" border="0">' +`
@@ -2075,7 +2075,7 @@ function XymonDirTime
                     {
                         $alertcolour = 'green'
                     }
-                    # report out - 
+                    # report out -
                     #  {0} = colour (matches[5])
                     #  {1} = folder name
                     #  {2} = folder modified x minutes ago
@@ -2085,7 +2085,7 @@ function XymonDirTime
                         'height="16" width="16" border="0">' +`
                         '{1} updated {2:F1} minutes ago. Alert if {3} {4} minutes ago.<br>') `
                         -f $alertcolour, $_, $minutesdiff, $conditiontype, $criteriaminutes, $script:XymonSettings.servergiflocation)
-                    # set group colour to colour if it is not already set to a 
+                    # set group colour to colour if it is not already set to a
                     # higher alert state colour
                     if ($groupcolour -eq 'green' -and $alertcolour -eq 'yellow')
                     {
@@ -2150,7 +2150,7 @@ function XymonNetstat
 function XymonIfstat
 {
     WriteLog "XymonIfstat start"
-    $families = @{ 'IPv4' = [System.Net.Sockets.AddressFamily]::InterNetwork; 
+    $families = @{ 'IPv4' = [System.Net.Sockets.AddressFamily]::InterNetwork;
         'IPv6' = [System.Net.Sockets.AddressFamily]::InterNetworkV6;
     }
 
@@ -2173,7 +2173,7 @@ function XymonIfstat
     WriteLog "wanted address families: $wantedFamilies"
 
     "[ifstat]"
-    [System.Net.NetworkInformation.NetworkInterface]::GetAllNetworkInterfaces() | 
+    [System.Net.NetworkInformation.NetworkInterface]::GetAllNetworkInterfaces() |
         where { $_.OperationalStatus -eq "Up" -and $_.NetworkInterfaceType -ne 'loopback' } |
         foreach {
         $ad = $_.GetIPv4Statistics() | select BytesSent, BytesReceived
@@ -2191,13 +2191,13 @@ function XymonSvcs
     WriteLog "XymonSvcs start"
     "[svcs]"
     "Name".PadRight(39) + " " + "StartupType".PadRight(12) + " " + "Status".PadRight(14) + " " + "DisplayName"
-    foreach ($s in $svcs) 
+    foreach ($s in $svcs)
     {
         if ($script:clientlocalcfg_entries.ContainsKey('slimmode'))
         {
             if ($script:clientlocalcfg_entries.slimmode.ContainsKey('services'))
             {
-                # skip this service if we are in slimmode and this service is not one of the 
+                # skip this service if we are in slimmode and this service is not one of the
                 # requested services
                 if ($script:clientlocalcfg_entries.slimmode.services -notcontains $s.Name)
                 {
@@ -2219,7 +2219,7 @@ function XymonProcs
     "{0,8} {1,-35} {2,-17} {3,-17} {4,-17} {5,8} {6,-7} {7,5} {8,-19} {9,7} {10} {11}" -f `
         "PID", "User", "WorkingSet/Peak", "VirtualMem/Peak", "PagedMem/Peak", "NPS", `
         "Handles", "%CPU", 'Start Time', 'Elapsed', "Name", "Command"
-    
+
     # output sorted process table
     $script:procs | Sort-Object -Descending { $_.CPUPercent } `
         | foreach {
@@ -2234,7 +2234,7 @@ function XymonProcs
             {
                 if ($script:clientlocalcfg_entries.slimmode.ContainsKey('processes'))
                 {
-                    # skip this process if we are in slimmode and this process is not one of the 
+                    # skip this process if we are in slimmode and this process is not one of the
                     # requested processes
                     if ($script:clientlocalcfg_entries.slimmode.processes -notcontains $_.XymonProcessName)
                     {
@@ -2242,7 +2242,7 @@ function XymonProcs
                     }
                 }
             }
-            
+
             if (!$skipFlag)
             {
                 "{0,8} {1,-35} {2} {3} {4} {5} {6,7:F0} {7,5:F1} {8,19} {9,7:F0} {10} {11}" -f $_.Id, $_.Owner, `
@@ -2269,7 +2269,7 @@ function CleanXymonProcsCpu
                     # reset flag to catch a dead process on the next run
                     # this flag will be updated back to $true by XymonProcsCPUUtilisation
                     # if the process still exists
-                    $thisp[3] = $false  
+                    $thisp[3] = $false
                 }
                 else {
                     # flag was set to $false previously = process has been terminated
@@ -2286,7 +2286,7 @@ function CleanXymonProcsCpu
 function XymonWho
 {
     WriteLog "XymonWho start"
-    if( $HaveCmd.qwinsta) 
+    if( $HaveCmd.qwinsta)
     {
         "[who]"
         if ($script:usersessions -eq $null)
@@ -2371,7 +2371,7 @@ function XymonWMIProduct
             $fmt = "{0,-70} {1,-15} {2}"
             $fmt -f "Name", "Version", "Vendor"
             $fmt -f "----", "-------", "------"
-            receive-job $job | Sort-Object Name | 
+            receive-job $job | Sort-Object Name |
             foreach {
                 $fmt -f $_.Name, $_.Version, $_.Vendor
             }
@@ -2425,7 +2425,7 @@ function XymonDiskPart
         $dpOutput = $dpOutput -replace '^\s+', ''
         $dpOutput = $dpOutput -replace '\s+$', ''
         "[diskpart]"
-        
+
         $diskDetailCmd = "select disk {0}`r`ndetail disk"
         $noVolumeRX = '^There are no volumes.'
 
@@ -2435,7 +2435,7 @@ function XymonDiskPart
             $cmd = $diskDetailCmd -f $diskNum
             $detailOutput = $cmd | diskpart
             $detailDisk = $detailOutput | where { $_ -match '^Clustered' -or $_ -match $noVolumeRX }
-        
+
             if ($detailDisk -match '^Clustered Disk  : No')
             {
                 $clusterOutput = 'Not Clustered'
@@ -2495,7 +2495,7 @@ function XymonServiceCheck
             # check for maintenance window
             $days = ('Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday')
             $serviceexclds = @($script:clientlocalcfg_entries.keys | where { $_ -match '^noservicecheck' })
-            
+
             if ($serviceexclds -ne '')
             {
                 foreach ($maintservice in $serviceexclds)
@@ -2524,10 +2524,10 @@ function XymonServiceCheck
                             }
                             $MaintWeekDay = $days[$MaintDay]
                         }
-                        
-                        if (((get-date).DayofWeek -eq $MaintWeekDay) -and ((get-date).Hour -eq $MaintStartHour) ) 
-                        { 
-                            if ($script:MaintChecks.ContainsKey($checkMparams[1])) 
+
+                        if (((get-date).DayofWeek -eq $MaintWeekDay) -and ((get-date).Hour -eq $MaintStartHour) )
+                        {
+                            if ($script:MaintChecks.ContainsKey($checkMparams[1]))
                             {
                                 $MaintWindowEnd = $script:MaintChecks[$checkMparams[1]].AddHours($MaintDuration)
                                 if ((get-date) -lt $MaintWindowEnd)
@@ -2548,7 +2548,7 @@ function XymonServiceCheck
                                  continue
                             }
                         }
-                        # end of maintenance hold   
+                        # end of maintenance hold
                     }
                 }
             }
@@ -2601,7 +2601,7 @@ function XymonTerminalServicesSessionsCheck
             catch
             {
                 WriteLog "Failed to get max sessions from CurrentControlSet registry: $_"
-                $maxSessions = 0xffffffffL 
+                $maxSessions = 0xffffffffL
             }
 
             $maxSessionMsg = ''
@@ -2631,7 +2631,7 @@ function XymonTerminalServicesSessionsCheck
             $yellowThreshold = $matches[1]
             $redThreshold = $matches[2]
 
-            $activeSessions = $script:usersessions | where { $_ -match 'Active' } | measure | 
+            $activeSessions = $script:usersessions | where { $_ -match 'Active' } | measure |
                 select -ExpandProperty Count
 
             $freeSessions = $maxSessions - $activeSessions
@@ -2655,7 +2655,7 @@ function XymonTerminalServicesSessionsCheck
                             'sessions: active: {2} maximum: {3} free: {4}. {7}<br>yellow alert = {5} free, red = {6} free.<br>') `
                             -f $script:XymonSettings.servergiflocation, $alertColour, `
                             $activeSessions, $maxSessions, $freeSessions, $yellowThreshold, $redThreshold, $maxSessionMsg)
-            
+
             $outputtext = (get-date -format G) + '<br><h2>Terminal Services Sessions</h2>' + $outputtext
             $output = ('status {0}.tssessions {1} {2}' -f $script:clientname, $alertColour, $outputtext)
             WriteLog "Terminal Services Sessions: sending $output"
@@ -2672,7 +2672,7 @@ function XymonActiveDirectoryReplicationCheck
         $results = @(ConvertFrom-Csv -InputObject $status)
 
         $alertColour = 'green'
-    
+
         $failcount = ($results | where { $_.'Last Failure Time' -gt $_.'Last Success Time' }).Length
         if ($failcount -gt 0)
         {
@@ -2682,7 +2682,7 @@ function XymonActiveDirectoryReplicationCheck
         {
             $failcount = 'none'
         }
-        
+
         $outputtext = (('<img src="{0}{1}.gif" alt="{1}" ' +`
                         'height="16" width="16" border="0">' +`
                         'Failing replication contexts: {2}<br>red alert = more than zero.<br>') `
@@ -2708,7 +2708,7 @@ function XymonActiveDirectoryReplicationCheck
 function XymonProcessRuntimeCheck
 {
     WriteLog 'Executing XymonProcessRuntimeCheck'
-    
+
     # config: processruntime:<process name>:<yellow elapsed threshold>:<red elapsed threshold>
     # thresholds in minutes
 
@@ -2795,13 +2795,13 @@ function XymonProcessExternalData
                     continue
                 }
                 # a valid filename is either just the test name: testname
-                # or testname^hostname, to allow sending results from a different 
+                # or testname^hostname, to allow sending results from a different
                 # named host
                 if ($f.Name -match '^([\w-]+)(?:\^([\S]+))?$')
                 {
                     $testName = $matches[1]
                     $hostName = $matches[2]
-                
+
                     if ($hostName -eq $null)
                     {
                         $hostName = $script:clientname
@@ -2820,7 +2820,7 @@ function XymonProcessExternalData
                         $statusFile.Close()
                     }
                     catch
-                    {        
+                    {
                         # if this file is locked or other errors, skip and go to the next one
                         if ($_ -like '*The process cannot access the file*because it is being used by another process*')
                         {
@@ -2850,7 +2850,7 @@ function XymonProcessExternalData
                             $msg += "+$lifeSpan"
                         }
                         $msg += (' {0}.{1} {2} {3}' -f $hostName, $testName, $groupColour, $statusMessage)
-                        
+
                         WriteLog "Sending Xymon message for file $($f.Name) - test $($testName), host $($hostName): $msg"
                         XymonSend $msg $script:XymonSettings.serversList
                     }
@@ -2927,7 +2927,7 @@ function XymonProcessLocalData
                     $statusFile.Close()
                 }
                 catch
-                {        
+                {
                     # if this file is locked or other errors, skip and go to the next one
                     if ($_ -like '*The process cannot access the file*because it is being used by another process*')
                     {
@@ -2966,14 +2966,14 @@ function XymonProcessLocalData
 }
 
 # from http://poshcode.org/1054
-function Remove-Diacritics([string]$String) 
+function Remove-Diacritics([string]$String)
 {
     $objD = $String.Normalize([Text.NormalizationForm]::FormD)
     $sb = New-Object Text.StringBuilder
-    for ($i = 0; $i -lt $objD.Length; $i++) 
+    for ($i = 0; $i -lt $objD.Length; $i++)
     {
         $c = [Globalization.CharUnicodeInfo]::GetUnicodeCategory($objD[$i])
-        if($c -ne [Globalization.UnicodeCategory]::NonSpacingMark) 
+        if($c -ne [Globalization.UnicodeCategory]::NonSpacingMark)
         {
             [void]$sb.Append($objD[$i])
         }
@@ -3021,7 +3021,7 @@ function XymonSendViaHttp($msg)
         $serverHttpPassword = DecryptHttpServerPassword
         $authString = ('{0}:{1}' -f $script:XymonSettings.serverHttpUsername, `
             $serverHttpPassword)
-        
+
         $encodedAuth = [System.Convert]::ToBase64String(`
             [System.Text.Encoding]::GetEncoding('ISO-8859-1').GetBytes($authString))
 
@@ -3065,7 +3065,7 @@ function XymonSendViaHttp($msg)
         WriteLog "  Exception connecting to $($url):`n$($_)"
         return ''
     }
-        
+
     $statusCode = [int]($response.StatusCode)
     if ($response.StatusCode -ne [System.Net.HttpStatusCode]::OK)
     {
@@ -3094,7 +3094,7 @@ function XymonSend($msg, $servers, $filePath)
     }
     else
     {
-        switch ($script:XymonSettings.XymonAcceptUTF8) 
+        switch ($script:XymonSettings.XymonAcceptUTF8)
         {
             1 {
                 WriteLog 'Using UTF8 encoding'
@@ -3108,12 +3108,12 @@ function XymonSend($msg, $servers, $filePath)
                 # convert non-break spaces to normal spaces
                 $msg = $msg.Replace([char]0x00a0,' ')
             }
-            default { 
-                WriteLog 'Using "original" ASCII encoding' 
+            default {
+                WriteLog 'Using "original" ASCII encoding'
                 $MessageEncoder = New-Object System.Text.ASCIIEncoding
             }
         }
-        foreach ($srv in $servers) 
+        foreach ($srv in $servers)
         {
             $srvparams = $srv.Split(":")
             # allow for server names that may resolve to multiple A records
@@ -3121,21 +3121,21 @@ function XymonSend($msg, $servers, $filePath)
                 $local:ErrorActionPreference = "SilentlyContinue"
                 $srvparams[0] | %{[system.net.dns]::GetHostAddresses($_)} | %{ $_.IPAddressToString}
             }
-            if ($srvIPs -eq $null) 
+            if ($srvIPs -eq $null)
             { # no IP addresses could be looked up
                 Write-Error -Category InvalidData ("No IP addresses could be found for host: " + $srvparams[0])
-            } 
-            else 
+            }
+            else
             {
-                if ($srvparams.Count -gt 1) 
+                if ($srvparams.Count -gt 1)
                 {
                     $srvport = $srvparams[1]
-                } 
-                else 
+                }
+                else
                 {
                     $srvport = 1984
                 }
-                foreach ($srvip in $srvIPs) 
+                foreach ($srvip in $srvIPs)
                 {
                     WriteLog "Connecting to host $srvip"
 
@@ -3144,7 +3144,7 @@ function XymonSend($msg, $servers, $filePath)
                     $socket = new-object System.Net.Sockets.TcpClient
                     $socket.Connect($srvip, $srvport)
                     $ErrorActionPreference = $saveerractpref
-                    if(! $? -or ! $socket.Connected ) 
+                    if(! $? -or ! $socket.Connected )
                     {
                         $errmsg = $Error[0].Exception
                         WriteLog "ERROR: Cannot connect to host $srv ($srvip) : $errmsg"
@@ -3155,9 +3155,9 @@ function XymonSend($msg, $servers, $filePath)
                     $socket.NoDelay = $true
 
                     $stream = $socket.GetStream()
-                    
+
                     $sent = 0
-                    foreach ($line in $msg) 
+                    foreach ($line in $msg)
                     {
                         # Convert data as appropriate
                         try
@@ -3171,16 +3171,16 @@ function XymonSend($msg, $servers, $filePath)
                     }
                     WriteLog "Sent $sent bytes to server"
 
-                    if ($saveresponse-- -gt 0) 
+                    if ($saveresponse-- -gt 0)
                     {
                         $socket.Client.Shutdown(1)  # Signal to Xymon we're done writing.
 
                         $bytes = 0
                         $line = ($msg -split [environment]::newline)[0]
                         $line = $line -replace '[\t|\s]+', ' '
-                        if  ($line -match '(download) (.*$)' ) 
+                        if  ($line -match '(download) (.*$)' )
                         {
-                            if ($filePath -eq $null -or $filePath -eq "") 
+                            if ($filePath -eq $null -or $filePath -eq "")
                             {
                                 # save it locally with the same name
                                 $filePath = split-path -leaf $matches[2]
@@ -3191,10 +3191,10 @@ function XymonSend($msg, $servers, $filePath)
                             do
                             {
                                 $read = $null;
-                                while($stream.DataAvailable -or $read -eq $null) 
+                                while($stream.DataAvailable -or $read -eq $null)
                                 {
                                     $read = $stream.Read($buffer, 0, 2048);
-                                    if ($read -gt 0) 
+                                    if ($read -gt 0)
                                     {
                                         $fileStream.Write($buffer, 0, $read);
                                         $bytes += $read
@@ -3203,8 +3203,8 @@ function XymonSend($msg, $servers, $filePath)
                             } while ($read -gt 0);
                             $fileStream.Close();
                             WriteLog "Wrote $bytes bytes from server to $filePath"
-                        } 
-                        else 
+                        }
+                        else
                         {
                             $s = new-object system.io.StreamReader($stream,"ASCII")
 
@@ -3223,7 +3223,7 @@ function XymonSend($msg, $servers, $filePath)
                     $socket.Close()
                     $script:LastTransmissionMethod = 'TCP'
                 } # foreach ($srvip in $srvIPs)
-            } # else of if ($srvIPs -eq $null) 
+            } # else of if ($srvIPs -eq $null)
         } # foreach $srv in $servers
     }
     $outputbuffer
@@ -3236,7 +3236,7 @@ function XymonClientConfig($cfglines)
     # Convert to Windows-style linebreaks
     $script:clientlocalcfg = $cfglines.Split("`n")
 
-    # overwrite local cached config with this version if 
+    # overwrite local cached config with this version if
     # remote config is enabled
     $configmode = ''
     if ($script:XymonSettings.clientremotecfgexec -ne 0)
@@ -3253,7 +3253,7 @@ function XymonClientConfig($cfglines)
 
     # Parse the config - always uses the local file (which may contain
     # config from remote)
-    if (test-path -PathType Leaf $script:XymonSettings.clientconfigfile) 
+    if (test-path -PathType Leaf $script:XymonSettings.clientconfigfile)
     {
         # make sure the config always contains something
         $script:clientlocalcfg_entries = @{ '_configmode_' = $configmode }
@@ -3361,7 +3361,7 @@ function XymonReportConfig
     "[XymonPSClientInfo]"
     "Collection number: $($script:collectionnumber)"
     "Last transmission method: $($script:LastTransmissionMethod)"
-    $script:thisXymonProcess    
+    $script:thisXymonProcess
 
     #get-process -id $PID
     #"[XymonPSClientThreadStats]"
@@ -3437,7 +3437,7 @@ function XymonClientInstall([string]$scriptname)
 {
     # client install re-written to use NSSM
     # also to remove any existing service first
-    
+
     XymonClientUnInstall
 
     & "$xymondir\nssm.exe" install `"$xymonsvcname`" `"$PSHOME\powershell.exe`" -ExecutionPolicy RemoteSigned -NoLogo -NonInteractive -NoProfile -WindowStyle Hidden -File `"`"`"$scriptname`"`"`"
@@ -3490,7 +3490,7 @@ function XymonDownloadFromFile([string]$downloadPath, [string]$destinationFilePa
     {
         Copy-Item  $downloadPath $destinationFilePath -Force
     }
-    catch 
+    catch
     {
         WriteLog "Error copying file: $_"
         return $false
@@ -3792,8 +3792,8 @@ function XymonManageExternals
             }
             $externalInfo = @{ Fullname = $externalFullName; `
                 ExecutionFrequency = $executionFrequency; `
-                ExecutionMethod = $executionMethod; 
-                ProcessName = $process; 
+                ExecutionMethod = $executionMethod;
+                ProcessName = $process;
                 Arguments = $arguments;
                 Priority = $priority }
             $externalObj = New-Object -Type PSObject -Property $externalInfo
@@ -3819,7 +3819,7 @@ function XymonManageExternals
                     if ($fileHash -ne $hashRequired)
                     {
                         WriteLog "Existing script hash mismatch (calculated $fileHash should be $hashRequired)"
-                        # hash mismatch, need to update via download 
+                        # hash mismatch, need to update via download
                         $downloadFlag = $true
                     }
                 }
@@ -3844,7 +3844,7 @@ function XymonManageExternals
                     $result = DownloadAndVerify -URI $externalURI -name $externalScriptName `
                         -path $script:XymonSettings.externalscriptlocation `
                         -hashAlgorithm $hashAlgorithm -hashRequired $hashRequired
-                    
+
                     if ($result)
                     {
                         WriteLog "Success, adding/updating external $externalScriptName in execution plan"
@@ -3902,7 +3902,7 @@ function XymonExecuteExternals([boolean] $isSlowscan)
                         $process
                 }
                 WriteLog "Process $($extpid.Id) started"
-            
+
                 if ($_.ExecutionMethod -eq 'sync')
                 {
                     WriteLog "Synchronous external: waiting for process $($extpid.Id) to complete"
@@ -3989,7 +3989,7 @@ function RepeatTests([string] $content)
         if ($line -match '^\[([^\]]+)\]$')
         {
             $currentSection = $matches[1]
-            # found a new section - if we were previously capturing lines from the 
+            # found a new section - if we were previously capturing lines from the
             # previous section, write out any repeat sections and reset
             if ($capturelines)
             {
@@ -3999,7 +3999,7 @@ function RepeatTests([string] $content)
                 $script:clientlocalcfg_entries.keys | where { $_ -match $regex } | foreach {
                     $newsection = $matches[1]
                     $outputHeader = @()
-                    $outputHeader += (get-date -format G) + "<br><h2>$newsection</h2>"                
+                    $outputHeader += (get-date -format G) + "<br><h2>$newsection</h2>"
                     $groupcolour = 'green'
                     # check for triggers
                     if ($script:clientlocalcfg_entries[$_] -ne $null)
@@ -4111,7 +4111,7 @@ function XymonLogSend()
     $log = ((get-content $script:XymonSettings.clientlogfile) -join "`n")
     $log = [System.Web.HttpUtility]::HtmlEncode($log)
 
-    $output = (get-date -format G) + '<br><h2>Xymon client log</h2><pre>' 
+    $output = (get-date -format G) + '<br><h2>Xymon client log</h2><pre>'
     $output += $log
     $output += '</pre>'
 
@@ -4199,7 +4199,7 @@ while ($running -eq $true) {
         -Value "$clientname - $XymonClientVersion"
 
     $script:collectionnumber++
-    $loopcount++ 
+    $loopcount++
     $UTCstr = get-date -Date ((get-date).ToUniversalTime()) -uformat '%Y-%m-%d %H:%M:%S'
     WriteLog "UTC date/time: $UTCstr"
     WriteLog "This is collection number $($script:collectionnumber), loop count $loopcount"
@@ -4215,11 +4215,11 @@ while ($running -eq $true) {
 
     $starttime = Get-Date
     $slowscan = $false
-    
-    if ($loopcount -eq $script:XymonSettings.slowscanrate) { 
+
+    if ($loopcount -eq $script:XymonSettings.slowscanrate) {
         $loopcount = 0
         $slowscan = $true
-        
+
         WriteLog "Doing slow scan tasks"
 
         WriteLog "Executing XymonWMIQuickFixEngineering"
@@ -4242,29 +4242,29 @@ while ($running -eq $true) {
     }
 
     XymonCollectInfo $slowscan
-    
+
     WriteLog "Performing main and optional tests and building output..."
-    $clout = "client $($clientname).$($script:XymonSettings.clientsoftware) $($script:XymonSettings.clientclass) XymonPS" | 
+    $clout = "client $($clientname).$($script:XymonSettings.clientsoftware) $($script:XymonSettings.clientclass) XymonPS" |
         Out-String
     $clsecs = XymonClientSections $slowscan | Out-String
     $localdatetime = Get-Date
     $clout += XymonDate | Out-String
     $clout += XymonClock | Out-String
     $clout +=  $clsecs
-    
+
     #XymonReportConfig >> $script:XymonSettings.clientlogfile
     WriteLog "Main and optional tests finished."
-    
+
     WriteLog "Sending to server"
     Set-Content -path $lastcollectfile -value $clout
-        
+
     $newconfig = XymonSend $clout $script:XymonSettings.serversList
 
     RepeatTests $clout
 
     XymonClientConfig $newconfig
     [GC]::Collect() # run every time to avoid memory bloat
-    
+
     #maybe check for update - only happens after a slow scan, when loopcount = 0
     if ($slowscan)
     {
@@ -4275,7 +4275,7 @@ while ($running -eq $true) {
     if ($script:collectionnumber -eq 1)
     {
         # if this is the very first collection, make the second collection happen sooner
-        # than the normal delay - this is because CPU usage is not collected on the 
+        # than the normal delay - this is because CPU usage is not collected on the
         # first run
         $delay = 30
     }

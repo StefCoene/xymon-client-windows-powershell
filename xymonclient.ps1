@@ -3009,7 +3009,7 @@ function XymonSendViaHttp($msg)
 
     $urls = $script:XymonSettings.serverUrl -split ' '
 
-    $return = ''
+    $output = ''
 
     foreach ($url in $urls) {
         if ($url -notmatch '^https?://')
@@ -3023,13 +3023,23 @@ function XymonSendViaHttp($msg)
         if ($script:XymonSettings.serverHttpUsername -ne '')
         {
             $serverHttpPassword = DecryptHttpServerPassword
-            $authString = ('{0}:{1}' -f $script:XymonSettings.serverHttpUsername, `
-                $serverHttpPassword)
+            if ( $serverHttpPassword -eq '' )
+            {
+                WriteLog '  Error in decrypting serverHttpPassword'
+                WriteLog 'XymonSendViaHttp finished'
+                # Return and not continue since we use the same serverHttpPassword for each url
+                return ''
+            }
+            else
+            {
+                $authString = ('{0}:{1}' -f $script:XymonSettings.serverHttpUsername, `
+                    $serverHttpPassword)
 
-            $encodedAuth = [System.Convert]::ToBase64String(`
-                [System.Text.Encoding]::GetEncoding('ISO-8859-1').GetBytes($authString))
+                $encodedAuth = [System.Convert]::ToBase64String(`
+                    [System.Text.Encoding]::GetEncoding('ISO-8859-1').GetBytes($authString))
 
-            WriteLog "  Using username $($script:XymonSettings.serverHttpUsername)"
+                WriteLog "  Using username $($script:XymonSettings.serverHttpUsername)"
+            }
         }
 
         if ($url -match '^https://')

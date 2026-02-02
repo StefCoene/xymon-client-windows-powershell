@@ -2854,6 +2854,15 @@ function XymonProcessExternalData
                         WriteLog "Sending Xymon message for file $($f.Name) - test $($testName), host $($hostName): $msg"
                         XymonSend $msg $script:XymonSettings.serversList
                     }
+                    elseif ($statusFileContent -match '^trends([\s\S]+)$')
+                    {
+                        $Message = $matches[1]
+
+                        $msg = ('{0} {1}.{2} {3}' -f 'data', $hostName, 'trends', $Message)
+
+                        WriteLog "Sending Xymon trends message"
+                        XymonSend $msg $script:XymonSettings.serversList
+                    }
                     elseif ($statusFileContent -match '^usermsg ')
                     {
                         $msg = $statusFileContent

@@ -4296,8 +4296,7 @@ if($args -eq "Install") {
     XymonClientInstall $MyInvocation.MyCommand.Definition
     $ret=1
 }
-if ($args -eq "uninstall")
-{
+if ($args -eq "uninstall") {
     XymonClientUnInstall
     $ret=1
 }
@@ -4324,6 +4323,11 @@ if($args -eq "Start") {
 }
 if($args -eq "Stop") {
     if((get-service $xymonsvcname).Status -eq "Running") { stop-service $xymonsvcname }
+    return
+}
+if($args -eq "ping") {
+    $output = XymonSend "ping" $script:XymonSettings.serversList
+    $output
     return
 }
 if($ret) {return}

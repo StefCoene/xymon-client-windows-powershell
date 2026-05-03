@@ -1119,14 +1119,13 @@ function UserSessionCount
     }
     else
     {
-        $q = get-wmiobject win32_logonsession | %{ $_.logonid}
-        $service = Get-WmiObject -ComputerName $server -Class Win32_Service -Filter "Name='$xymonsvc'"
+        $q = Get-CimInstance -ClassName Win32_LogonSession | %{ $_.logonid}
         $s = 0
-        get-wmiobject win32_session | ?{ 2,10 -eq $_.LogonType} | ?{$q -eq $_.logonid} | %{
+        Get-CimInstance -ClassName Win32_Session | ?{ 2,10 -eq $_.LogonType} | ?{$q -eq $_.logonid} | %{
             $z = $_.logonid
-            get-wmiobject win32_sessionprocess | ?{ $_.Antecedent -like "*LogonId=`"$z`"*" } | %{
+            Get-CimInstance -ClassName Win32_SessionProcess | ?{ $_.Antecedent -like "*LogonId=`"$z`"*" } | %{
                 if($_.Dependent -match "Handle=`"(\d+)`"") {
-                    get-wmiobject win32_process -filter "processid='$($matches[1])'" }
+                    Get-CimInstance -ClassName Win32_Process -Filter "processid='$($matches[1])'" }
             } | select -first 1 | %{ $s++ }
         }
         $s
@@ -1150,9 +1149,9 @@ function XymonCollectInfo([boolean] $isSlowScan)
     XymonProcsCPUUtilisation
 
     WriteLog "XymonCollectInfo: OS info (including memory) (WMI)"
-    $script:osinfo = Get-WmiObject -Class Win32_OperatingSystem
+    $script:osinfo = Get-CimInstance -ClassName Win32_OperatingSystem
     WriteLog "XymonCollectInfo: Service info (WMI)"
-    $script:svcs = Get-WmiObject -Class Win32_Service | Sort-Object -Property Name
+    $script:svcs = Get-CimInstance -ClassName Win32_Service | Sort-Object -Property Name
     WriteLog "XymonCollectInfo: Disk info"
     $mydisks = @()
     try
@@ -1183,8 +1182,8 @@ function XymonCollectInfo([boolean] $isSlowScan)
     }
 
     WriteLog "XymonCollectInfo: Date processing (uses WMI data)"
-    $script:localdatetime = $osinfo.ConvertToDateTime($osinfo.LocalDateTime)
-    $script:uptime = $localdatetime - $osinfo.ConvertToDateTime($osinfo.LastBootUpTime)
+    $script:localdatetime = $osinfo.LocalDateTime
+    $script:uptime = $localdatetime - $osinfo.LastBootUpTime
     
     WriteLog "XymonCollectInfo: Adding CPU usage etc to main process data"
     XymonProcesses
@@ -1197,7 +1196,7 @@ function XymonCollectInfo([boolean] $isSlowScan)
 
 function WMIProp($class)
 {
-    $wmidata = Get-WmiObject -Class $class
+    $wmidata = Get-CimInstance -ClassName $class
     $props = ($wmidata | Get-Member -MemberType Property | Sort-Object -Property Name | where { $_.Name -notlike "__*" })
     foreach ($p in $props) {
         $p.Name + " : " + $wmidata.($p.Name)
@@ -1223,7 +1222,7 @@ function du([string]$dir,[int]$clsize=0)
 {
     if($clsize -eq 0) {
         $drive = "{0}:" -f [string](get-item $dir | %{ $_.psdrive })
-        $clsize = [int](Get-WmiObject win32_Volume | ? { $_.DriveLetter -eq $drive }).BlockSize
+        $clsize = [int](Get-CimInstance -ClassName Win32_Volume | ? { $_.DriveLetter -eq $drive }).BlockSize
         if($clsize -eq 0 -or $clsize -eq $null) { $clsize = 4096 } # default in case not found
     }
     $sum = 0
@@ -2352,7 +2351,7 @@ function XymonWMIQuickFixEngineering
     if ($script:XymonSettings.EnableWin32_QuickFixEngineering -eq 1)
     {
         "[WMI:Win32_QuickFixEngineering]"
-        Get-WmiObject -Class Win32_QuickFixEngineering | where { $_.Description -ne "" } | Sort-Object HotFixID | Format-Wide -Property HotFixID -AutoSize
+        Get-CimInstance -ClassName Win32_QuickFixEngineering | where { $_.Description -ne "" } | Sort-Object HotFixID | Format-Wide -Property HotFixID -AutoSize
     }
     else
     {
@@ -2365,7 +2364,7 @@ function XymonWMIProduct
     if ($script:XymonSettings.EnableWin32_Product -eq 1)
     {
         # run as job, since Win32_Product WMI dies on some systems (e.g. XP)
-        $job = Get-WmiObject -Class Win32_Product -AsJob | wait-job
+        $job = Get-CimInstance -ClassName Win32_Product -AsJob | wait-job
         if($job.State -eq "Completed") {
             "[WMI:Win32_Product]"
             $fmt = "{0,-70} {1,-15} {2}"
@@ -2405,13 +2404,13 @@ function XymonWMIProcessor
 function XymonWMIMemory
 {
     "[WMI:Win32_PhysicalMemory]"
-    Get-WmiObject -Class Win32_PhysicalMemory | Format-Table -AutoSize BankLabel,Capacity,DataWidth,DeviceLocator
+    Get-CimInstance -ClassName Win32_PhysicalMemory | Format-Table -AutoSize BankLabel,Capacity,DataWidth,DeviceLocator
 }
 
 function XymonWMILogicalDisk
 {
     "[WMI:Win32_LogicalDisk]"
-    Get-WmiObject -Class Win32_LogicalDisk | Format-Table -AutoSize
+    Get-CimInstance -ClassName Win32_LogicalDisk | Format-Table -AutoSize
 }
 
 function XymonDiskPart
@@ -3434,8 +3433,8 @@ function XymonClientUnInstall()
     if ((Get-Service -ea:SilentlyContinue $xymonsvcname) -ne $null)
     {
         Stop-Service $xymonsvcname
-        $service = Get-WmiObject -Class Win32_Service -Filter "Name='$xymonsvcname'"
-        $service.delete() | out-null
+        $service = Get-CimInstance -ClassName Win32_Service -Filter "Name='$xymonsvcname'"
+        Invoke-CimMethod -InputObject $service -MethodName Delete | Out-Null
 
         Remove-Item -Path HKLM:\SYSTEM\CurrentControlSet\Services\$xymonsvcname\* -Recurse -ErrorAction SilentlyContinue
     }

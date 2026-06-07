@@ -1043,6 +1043,8 @@ function XymonInit
     $script:externals = @{}
     $script:diskpartData = ''
     $script:LastTransmissionMethod = 'Unknown'
+    $script:maxloop = 0    # overwritten by XymonClientConfig if maxloop directive is present in server config
+    $script:slowscanrate = 72 # overwritten by XymonClientConfig if slowscanrate directive is present in server config
 
     $script:HaveCmd = @{}
     foreach($cmd in "query","qwinsta") {

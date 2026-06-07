@@ -2822,13 +2822,20 @@ function XymonProcessExternalData
                     # if we cannot, the file may be being updated by a running job, so
                     # we will ignore it until the next poll
                     WriteLog "Attempting to process external file $($f.FullName)"
+                    $skipFile = $false
                     try
                     {
                         $statusFile = [System.IO.File]::Open($f.FullName, 'Open', 'Read', 'None')
                         $reader = New-Object System.IO.StreamReader($statusFile)
-                        $statusFileContent = $reader.ReadToEnd()
-                        $reader.Close()
-                        $statusFile.Close()
+                        try
+                        {
+                            $statusFileContent = $reader.ReadToEnd()
+                        }
+                        finally
+                        {
+                            $reader.Close()
+                            $statusFile.Close()
+                        }
                     }
                     catch
                     {
@@ -2841,8 +2848,9 @@ function XymonProcessExternalData
                         {
                             WriteLog "External file $($f.Name) error accessing file, skipping: $_"
                         }
-                        continue
+                        $skipFile = $true
                     }
+                    if ($skipFile) { continue }
 
                     # match:
                     # colour ($matches[1])
@@ -2929,13 +2937,20 @@ function XymonProcessLocalData
 
                 $statusFileContent = ''
 
+                $skipFile = $false
                 try
                 {
                     $statusFile = [System.IO.File]::Open($f.FullName, 'Open', 'Read', 'None')
                     $reader = New-Object System.IO.StreamReader($statusFile)
-                    $statusFileContent = $reader.ReadToEnd()
-                    $reader.Close()
-                    $statusFile.Close()
+                    try
+                    {
+                        $statusFileContent = $reader.ReadToEnd()
+                    }
+                    finally
+                    {
+                        $reader.Close()
+                        $statusFile.Close()
+                    }
                 }
                 catch
                 {
@@ -2948,8 +2963,9 @@ function XymonProcessLocalData
                     {
                         WriteLog "Local file $($f.Name) error accessing file, skipping: $_"
                     }
-                    continue
+                    $skipFile = $true
                 }
+                if ($skipFile) { continue }
 
                 if ($statusFileContent -ne '')
                 {
@@ -2959,7 +2975,14 @@ function XymonProcessLocalData
                 }
 
                 WriteLog "Deleting file $($f.Name)"
-                Remove-Item $f.FullName -Force
+                try
+                {
+                    Remove-Item $f.FullName -Force
+                }
+                catch
+                {
+                    WriteLog "Error deleting file $($f.Name): $_"
+                }
             }
         }
         else

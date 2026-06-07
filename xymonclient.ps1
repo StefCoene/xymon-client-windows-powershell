@@ -3339,8 +3339,7 @@ function XymonSend($msg, $servers, $filePath)
 
 function XymonClientConfig($cfglines)
 {
-    if ($cfglines -is [bool]) { return }
-    if ($cfglines -eq $null -or $cfglines -eq "") { return }
+    if ($cfglines -eq $null -or $cfglines -eq "" -or $cfglines -is [bool]) { return }
 
     # Convert to Windows-style linebreaks
     $script:clientlocalcfg = $cfglines.Split("`n")

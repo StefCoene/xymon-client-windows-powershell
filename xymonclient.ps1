@@ -3512,20 +3512,41 @@ function XymonClientUnInstall()
 function ExecuteSelfUpdate([string]$newversion)
 {
     $oldversion = $MyInvocation.ScriptName
+    $backupversion = "$oldversion.bak"
 
     WriteLog "Upgrading $oldversion to $newversion"
 
-    # copy newversion to correct name
-    # remove newversion file
-    # re-start service - by exiting, NSSM will notice the process has ended and will
-    # automatically restart it
+    $Process = powershell.exe -File $newversion ping 2>&1 | Out-String
 
-    copy-item "$newversion" "$oldversion" -force
-    remove-item "$newversion"
+    if ( $Process -like "*xymond *" ) {
+        WriteLog "New version is working"
 
-    WriteLog "Sending final log and restarting service..."
-    XymonLogSend
-    exit
+        WriteLog "Creating backup of current version: $backupversion"
+        Copy-Item "$oldversion" "$backupversion" -Force
+
+        try
+        {
+            Copy-Item "$newversion" "$oldversion" -Force
+        }
+        catch
+        {
+            WriteLog "ERROR: Failed to copy new version, restoring backup: $_"
+            Copy-Item "$backupversion" "$oldversion" -Force
+            Remove-Item "$backupversion" -ErrorAction SilentlyContinue
+            return
+        }
+
+        Remove-Item "$newversion"    -ErrorAction SilentlyContinue
+        Remove-Item "$backupversion" -ErrorAction SilentlyContinue
+
+        WriteLog "Sending final log and restarting service..."
+        XymonLogSend
+        exit
+
+    } else {
+        WriteLog "ERROR! New version is not working"
+        WriteLog $Process
+    }
 }
 
 # XymonDownloadFromFile used when a file path is used instead of a URL

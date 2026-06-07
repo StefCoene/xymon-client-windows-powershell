@@ -3371,7 +3371,9 @@ function XymonClientConfig($cfglines)
         }
     }
     WriteLog "Cached config now contains: "
-    WriteLog ($script:clientlocalcfg_entries.keys -join ', ')
+    foreach ( $i in $script:clientlocalcfg_entries.keys ) {
+        WriteLog ("  "+$i)
+    }
 
     # special handling for servergifs
     $gifpath = @($script:clientlocalcfg_entries.keys | where { $_ -match '^servergifs:(.+)$' })

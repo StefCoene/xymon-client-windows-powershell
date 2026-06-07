@@ -3624,8 +3624,14 @@ function GetHashValueForFile([string] $filename, [string] $hashAlgorithm)
 {
     $hash = [System.Security.Cryptography.HashAlgorithm]::Create($hashAlgorithm)
     $stream = ([System.IO.StreamReader]$filename).BaseStream
-    $fileHash = -join ($hash.ComputeHash($stream) | foreach { '{0:x2}' -f $_ } )
-    $stream.Close()
+    try
+    {
+        $fileHash = -join ($hash.ComputeHash($stream) | foreach { '{0:x2}' -f $_ } )
+    }
+    finally
+    {
+        $stream.Close()
+    }
     return $fileHash
 }
 

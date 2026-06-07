@@ -4389,11 +4389,11 @@ while ($true) {
     $starttime = Get-Date
     $slowscan = $false
 
-    if ($loopcount -eq $script:slowscanrate) {
+    if ($loopcount -ge $script:slowscanrate) {
+        WriteLog "Doing slow scan tasks: $loopcount -ge $($script:slowscanrate)"
+
         $loopcount = 0
         $slowscan = $true
-
-        WriteLog "Doing slow scan tasks"
 
         WriteLog "Executing XymonWMIQuickFixEngineering"
         $XymonWMIQuickFixEngineeringCache = XymonWMIQuickFixEngineering
@@ -4412,6 +4412,8 @@ while ($true) {
         }
 
         WriteLog "Slow scan tasks completed."
+    } else {
+        WriteLog "Not doing slow scan tasks: loopcount ($loopcount) < slowscanrate ($($script:slowscanrate))"
     }
 
     XymonCollectInfo $slowscan

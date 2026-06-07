@@ -3338,6 +3338,7 @@ function XymonSend($msg, $servers, $filePath)
 
 function XymonClientConfig($cfglines)
 {
+    if ($cfglines -is [bool]) { return }
     if ($cfglines -eq $null -or $cfglines -eq "") { return }
 
     # Convert to Windows-style linebreaks
@@ -3770,7 +3771,7 @@ function XymonCheckUpdate
                 }
                 else
                 {
-                    # not http, not bb, not xymon - maybe a file path?
+                    # not http, not bb/xymon - maybe a file path?
                     $updateSource = Join-Path $updatePath $updateFile
                     $result = XymonDownloadFromFile $updateSource $destination
                 }
@@ -3847,7 +3848,7 @@ function DownloadAndVerify([string] $URI, [string] $name, [string] $path, `
     }
     else
     {
-        # not http, not bb, not xymon - maybe a file path?
+        # not http, not bb/xymon - maybe a file path?
         $result = XymonDownloadFromFile $URI $destination
     }
 

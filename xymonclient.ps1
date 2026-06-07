@@ -3657,7 +3657,7 @@ function XymonCheckUpdate
             # $matches[3] = (optional) hash type
             # $matches[4] = (optional) hash value
 
-            if ($Version -lt $matches[1])
+            if ([version]$Version -lt [version]$matches[1])
             {
                 WriteLog "Running version $Version; config version $($matches[1]); attempting upgrade"
 

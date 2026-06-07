@@ -3178,17 +3178,24 @@ function XymonSend($msg, $servers, $filePath)
 
                     $saveerractpref = $ErrorActionPreference
                     $ErrorActionPreference = "SilentlyContinue"
-                    $socket = new-object System.Net.Sockets.TcpClient
-                    $socket.Connect($srvip, $srvport)
-                    $ErrorActionPreference = $saveerractpref
-                    if(! $? -or ! $socket.Connected )
-                    {
-                        $errmsg = $Error[0].Exception
-                        WriteLog "ERROR: Cannot connect to host $srv ($srvip) : $errmsg"
-                        Write-Error -Category OpenError "Cannot connect to host $srv ($srvip) : $errmsg"
-                        continue;
+
+                    $socket = New-Object System.Net.Sockets.TcpClient
+                    try {
+                       $socket.Connect($srvip, $srvport)
+                       if (-not $socket.Connected) {
+                          throw "Not connected"
+                       }
                     }
-                    $socket.sendTimeout = 500
+                    catch {
+                       $errmsg = $_.Exception.Message
+                       WriteLog "ERROR: Cannot connect to host $srv ($srvip) : $errmsg"
+                       Write-Error -Category OpenError "Cannot connect to host $srv ($srvip) : $errmsg"
+                       $socket.Dispose()
+                       $ErrorActionPreference = $saveerractpref
+                       continue
+                    }
+                    $ErrorActionPreference = $saveerractpref
+                    $socket.SendTimeout = 500
                     $socket.NoDelay = $true
 
                     $stream = $socket.GetStream()

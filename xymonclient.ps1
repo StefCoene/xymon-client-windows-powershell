@@ -3737,7 +3737,7 @@ function XymonCheckUpdate
             {
                 WriteLog "Running version $Version; config version $($matches[1]); attempting upgrade from $($matches[2])"
 
-                # $matches[2] can be either a http[s] URL, bb, xymon, fake URL or a file path
+                # $matches[2] can be either a http[s] URL, bb/xymon fake URL or a file path
                 $updatePath = $matches[2]
                 $updateFile = "xymonclient_$($matches[1]).ps1"
                 $hashAlgorithm = $matches[3]
@@ -3851,7 +3851,7 @@ function DownloadAndVerify([string] $URI, [string] $name, [string] $path, `
         $result = XymonDownloadFromFile $URI $destination
     }
 
-    if ($result -ne $false -and $hashAlgorithm -ne $null -and $hashAlgorithm -ne "")
+    if ($result -ne $false -and $hashAlgorithm -ne $null)
     {
         WriteLog "$($hashAlgorithm) hash specified, testing destination file"
         $fileHash = ''

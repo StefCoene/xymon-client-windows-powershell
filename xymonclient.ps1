@@ -4359,13 +4359,12 @@ if (Test-Path -PathType Leaf $script:XymonSettings.clientconfigfile)
 }
 
 $lastcollectfile = join-path $script:XymonSettings.clientlogpath 'xymon-lastcollect.txt'
-$running = $true
 $script:collectionnumber = (0 -as [long])
 $loopcount = ($script:slowscanrate - 1)
 
 AddHelperTypes
 
-while ($running -eq $true) {
+while ($true) {
     # log file setup/maintenance
     RotateLog $lastcollectfile
     RotateLog $script:XymonSettings.clientlogfile

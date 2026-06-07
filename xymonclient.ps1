@@ -3775,7 +3775,7 @@ function XymonCheckUpdate
                     $result = XymonDownloadFromFile $updateSource $destination
                 }
 
-                if ($result)
+                if ($result -ne $false)
                 {
                     $newversion = Join-Path $xymondir $updateFile
                     if ($hashAlgorithm -ne $null)
@@ -3851,7 +3851,7 @@ function DownloadAndVerify([string] $URI, [string] $name, [string] $path, `
         $result = XymonDownloadFromFile $URI $destination
     }
 
-    if ($result -and $hashAlgorithm -ne $null)
+    if ($result -ne $false -and $hashAlgorithm -ne $null -and $hashAlgorithm -ne "")
     {
         WriteLog "$($hashAlgorithm) hash specified, testing destination file"
         $fileHash = ''
@@ -3862,10 +3862,10 @@ function DownloadAndVerify([string] $URI, [string] $name, [string] $path, `
         catch
         {
             WriteLog "Error calculating hash: $_"
-            $result = $false
+            $fileHash = $false
         }
 
-        if ($result)
+        if ($fileHash -ne $false)
         {
             if ($fileHash -ne $hashRequired)
             {
@@ -3877,13 +3877,14 @@ function DownloadAndVerify([string] $URI, [string] $name, [string] $path, `
                 WriteLog "Downloaded file hash matches expected value, can proceed"
             }
         }
-        if (!$result)
+        if ($result -eq $false)
         {
             WriteLog "Removing failed download $destination"
             Remove-Item $destination
         }
     }
-    if ($result)
+
+    if ($result -ne $false)
     {
         $originalFile = Join-Path -Path $path -ChildPath $name
         if (Test-Path $originalFile)

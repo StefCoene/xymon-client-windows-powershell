@@ -4267,7 +4267,7 @@ function XymonLogSend()
                 $markslowscan = $checkparams[2]
             }
         }
-        elseif ($($script:loopcount) -eq 0)
+        elseif ($loopcount -eq 0)
         {
             if ($checkparams.length -ge 2)
             {

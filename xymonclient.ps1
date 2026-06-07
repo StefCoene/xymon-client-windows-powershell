@@ -936,6 +936,9 @@ function XymonInitRegistry
 
 function XymonInit
 {
+    # make sure the config always contains something
+    $script:clientlocalcfg_entries = @{}
+
     if($script:XymonSettings -eq $null) {
         $script:XymonSettings = New-Object Object
     }
@@ -1707,69 +1710,66 @@ function XymonMsgs
                 WriteLog "Event log $l entries since last scan: $($logentries.Length)"
 
                 # filter based on clientlocal.cfg / clientconfig.cfg
-                if ($script:clientlocalcfg_entries -ne $null)
+                $filterkey = $script:clientlocalcfg_entries.keys | where { $_ -match "^eventlog\:$l" }
+                if ($filterkey -ne $null -and $script:clientlocalcfg_entries.ContainsKey($filterkey))
                 {
-                    $filterkey = $script:clientlocalcfg_entries.keys | where { $_ -match "^eventlog\:$l" }
-                    if ($filterkey -ne $null -and $script:clientlocalcfg_entries.ContainsKey($filterkey))
+                    WriteLog "Found a configured filter for log $l"
+
+                    # ignore / include - include has priority over ignore
+                    # so if there are any include filters, they get priority and ignores are disregarded
+                    $filters = @( $script:clientlocalcfg_entries[$filterkey] | where { $_ -match '^include ' } )
+                    $filterMode = 'include'
+                    if ($filters -eq $null -or $filters.Length -eq 0)
                     {
-                        WriteLog "Found a configured filter for log $l"
-
-                        # ignore / include - include has priority over ignore
-                        # so if there are any include filters, they get priority and ignores are disregarded
-                        $filters = @( $script:clientlocalcfg_entries[$filterkey] | where { $_ -match '^include ' } )
-                        $filterMode = 'include'
-                        if ($filters -eq $null -or $filters.Length -eq 0)
-                        {
-                            $filters = @( $script:clientlocalcfg_entries[$filterkey] | where { $_ -match '^ignore ' } )
-                            $filterMode = 'exclude'
-                        }
-                        WriteLog "Filter mode: $filterMode Filter entries: $($filters.Length)"
-
-                        # process filters if we have one or the other
-                        $filterCount = 0
-                        $output = @()
-                        foreach ($entry in $logentries)
-                        {
-                            if ($filterMode -eq 'exclude')
-                            {
-                                $excludeItem = $false
-                                foreach ($filter in $filters)
-                                {
-                                    $filter = $filter -replace '^ignore ', ''
-                                    if ($entry.ProviderName -match $filter -or $entry.Message -match $filter)
-                                    {
-                                        ++$filterCount
-                                        $excludeItem = $true
-                                        break
-                                    }
-                                }
-                                if (-not $excludeItem)
-                                {
-                                    $output += $entry
-                                }
-                            }
-                            elseif ($filterMode -eq 'include')
-                            {
-                                $includeItem = $false
-                                foreach ($filter in $filters)
-                                {
-                                    $filter = $filter -replace '^include ', ''
-                                    if ($entry.ProviderName -match $filter -or $entry.Message -match $filter)
-                                    {
-                                        ++$filterCount
-                                        $includeItem = $true
-                                        break
-                                    }
-                                }
-                                if ($includeItem)
-                                {
-                                    $output += $entry
-                                }
-                            }
-                        }
-                        $logentries = $output
-                        WriteLog "Starting entries: $($totalEntries)  Entries filtered: $($filterCount)  Remaining entries: $($logentries.Count)"
+                        $filters = @( $script:clientlocalcfg_entries[$filterkey] | where { $_ -match '^ignore ' } )
+                        $filterMode = 'exclude'
                     }
+                    WriteLog "Filter mode: $filterMode Filter entries: $($filters.Length)"
+
+                    # process filters if we have one or the other
+                    $filterCount = 0
+                    $output = @()
+                    foreach ($entry in $logentries)
+                    {
+                        if ($filterMode -eq 'exclude')
+                        {
+                            $excludeItem = $false
+                            foreach ($filter in $filters)
+                            {
+                                $filter = $filter -replace '^ignore ', ''
+                                if ($entry.ProviderName -match $filter -or $entry.Message -match $filter)
+                                {
+                                    ++$filterCount
+                                    $excludeItem = $true
+                                    break
+                                }
+                            }
+                            if (-not $excludeItem)
+                            {
+                                $output += $entry
+                            }
+                        }
+                        elseif ($filterMode -eq 'include')
+                        {
+                            $includeItem = $false
+                            foreach ($filter in $filters)
+                            {
+                                $filter = $filter -replace '^include ', ''
+                                if ($entry.ProviderName -match $filter -or $entry.Message -match $filter)
+                                {
+                                    ++$filterCount
+                                    $includeItem = $true
+                                    break
+                                }
+                            }
+                            if ($includeItem)
+                            {
+                                $output += $entry
+                            }
+                        }
+                    }
+                    $logentries = $output
+                    WriteLog "Starting entries: $($totalEntries)  Entries filtered: $($filterCount)  Remaining entries: $($logentries.Count)"
                 }
 
                 if ($logentries -ne $null)
@@ -2480,115 +2480,112 @@ function XymonDiskPart
 function XymonServiceCheck
 {
     WriteLog "Executing XymonServiceCheck"
-    if ($script:clientlocalcfg_entries -ne $null)
+    $servicecfgs = @($script:clientlocalcfg_entries.keys | where { $_ -match '^servicecheck' })
+    foreach ($service in $servicecfgs)
     {
-        $servicecfgs = @($script:clientlocalcfg_entries.keys | where { $_ -match '^servicecheck' })
-        foreach ($service in $servicecfgs)
+        # parameter should be 'servicecheck:<servicename>:<duration>'
+        $checkparams = $service -split ':'
+        # validation
+        if ($checkparams.length -ne 3)
         {
-            # parameter should be 'servicecheck:<servicename>:<duration>'
-            $checkparams = $service -split ':'
-            # validation
-            if ($checkparams.length -ne 3)
+            WriteLog "ERROR: not enough parameters (should be servicecheck:<servicename>:<duration>) - $checkparams[1]"
+            continue
+        }
+        else
+        {
+            $duration = $checkparams[2] -as [int]
+            if ($checkparams[1] -eq '' -or $duration -eq $null)
             {
-                WriteLog "ERROR: not enough parameters (should be servicecheck:<servicename>:<duration>) - $checkparams[1]"
+                WriteLog "ERROR: config error (should be servicecheck:<servicename>:<duration>) - $checkparams[1]"
                 continue
             }
-            else
-            {
-                $duration = $checkparams[2] -as [int]
-                if ($checkparams[1] -eq '' -or $duration -eq $null)
-                {
-                    WriteLog "ERROR: config error (should be servicecheck:<servicename>:<duration>) - $checkparams[1]"
-                    continue
-                }
-            }
-            # check for maintenance window
-            $days = ('Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday')
-            $serviceexclds = @($script:clientlocalcfg_entries.keys | where { $_ -match '^noservicecheck' })
+        }
+        # check for maintenance window
+        $days = ('Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday')
+        $serviceexclds = @($script:clientlocalcfg_entries.keys | where { $_ -match '^noservicecheck' })
 
-            if ($serviceexclds -ne '')
+        if ($serviceexclds -ne '')
+        {
+            foreach ($maintservice in $serviceexclds)
             {
-                foreach ($maintservice in $serviceexclds)
+                # parameter should be 'noservicecheck:<servicename>:<numeric day of week Sun=0>:<military start hour>:<duration in Hours>'
+                $checkMparams = $maintservice -split ':'
+                if ($checkparams[1] -eq $checkMparams[1])
                 {
-                    # parameter should be 'noservicecheck:<servicename>:<numeric day of week Sun=0>:<military start hour>:<duration in Hours>'
-                    $checkMparams = $maintservice -split ':'
-                    if ($checkparams[1] -eq $checkMparams[1])
+                    # validation of number of parameters
+                    if ($checkMparams.length -ne 5)
                     {
-                        # validation of number of parameters
-                        if ($checkMparams.length -ne 5)
+                        WriteLog ("ERROR: not enough parameters (noservicecheck:<servicename>:<numeric day of week Sun=0>:<start hour (24h)>:<duration Hrs> {0}" -f $checkMparams[1])
+                        continue
+                    }
+                    else
+                    {
+                        # get values
+                        $MaintDay = $checkMparams[2] -as [int]
+                        $MaintStartHour = $checkMparams[3] -as [int]
+                        $MaintDuration = $checkMparams[4] -as [int]
+                        # validation of basic values
+                        if ($checkMparams[1] -eq '' -or $MaintDuration -eq $null -or (0..6 -notcontains $MaintDay) -or (0..23 -notcontains $MaintStartHour))
                         {
-                            WriteLog ("ERROR: not enough parameters (noservicecheck:<servicename>:<numeric day of week Sun=0>:<start hour (24h)>:<duration Hrs> {0}" -f $checkMparams[1])
+                            WriteLog ("ERROR: config error (noservicecheck:<servicename>:<numeric day of week Sun=0>:<start hour (24h)>:<duration Hrs>) {0}" -f $checkMparams[1])
                             continue
                         }
-                        else
-                        {
-                            # get values
-                            $MaintDay = $checkMparams[2] -as [int]
-                            $MaintStartHour = $checkMparams[3] -as [int]
-                            $MaintDuration = $checkMparams[4] -as [int]
-                            # validation of basic values
-                            if ($checkMparams[1] -eq '' -or $MaintDuration -eq $null -or (0..6 -notcontains $MaintDay) -or (0..23 -notcontains $MaintStartHour))
-                            {
-                                WriteLog ("ERROR: config error (noservicecheck:<servicename>:<numeric day of week Sun=0>:<start hour (24h)>:<duration Hrs>) {0}" -f $checkMparams[1])
-                                continue
-                            }
-                            $MaintWeekDay = $days[$MaintDay]
-                        }
+                        $MaintWeekDay = $days[$MaintDay]
+                    }
 
-                        if (((get-date).DayofWeek -eq $MaintWeekDay) -and ((get-date).Hour -eq $MaintStartHour) )
+                    if (((get-date).DayofWeek -eq $MaintWeekDay) -and ((get-date).Hour -eq $MaintStartHour) )
+                    {
+                        if ($script:MaintChecks.ContainsKey($checkMparams[1]))
                         {
-                            if ($script:MaintChecks.ContainsKey($checkMparams[1]))
+                            $MaintWindowEnd = $script:MaintChecks[$checkMparams[1]].AddHours($MaintDuration)
+                            if ((get-date) -lt $MaintWindowEnd)
                             {
-                                $MaintWindowEnd = $script:MaintChecks[$checkMparams[1]].AddHours($MaintDuration)
-                                if ((get-date) -lt $MaintWindowEnd)
-                                {
-                                    WriteLog (" Maintenance: Skipping Service Check until after $($MaintWindowEnd) for {0}" -f $checkMparams[1])
-                                    continue
-                                }
-                                else
-                                {
-                                    clear.variable $script:MaintChecks
-                                }
+                                WriteLog (" Maintenance: Skipping Service Check until after $($MaintWindowEnd) for {0}" -f $checkMparams[1])
+                                continue
                             }
                             else
                             {
-                                 WriteLog ("Not seen this NoServiceCheck before, starting Maintenance Window now for {0}" -f $checkMparams[1])
-                                 $hourTop = (get-date).Minute
-                                 $script:MaintChecks[$checkMparams[1]] = (get-date).AddMinutes(-($hourTop))
-                                 continue
+                                clear.variable $script:MaintChecks
                             }
                         }
-                        # end of maintenance hold
+                        else
+                        {
+                             WriteLog ("Not seen this NoServiceCheck before, starting Maintenance Window now for {0}" -f $checkMparams[1])
+                             $hourTop = (get-date).Minute
+                             $script:MaintChecks[$checkMparams[1]] = (get-date).AddMinutes(-($hourTop))
+                             continue
+                        }
                     }
+                    # end of maintenance hold
                 }
             }
-            WriteLog ("Checking service {0}" -f $checkparams[1])
+        }
+        WriteLog ("Checking service {0}" -f $checkparams[1])
 
-            $winsrv = Get-Service -Name $checkparams[1]
-            if ($winsrv.Status -eq 'Stopped')
+        $winsrv = Get-Service -Name $checkparams[1]
+        if ($winsrv.Status -eq 'Stopped')
+        {
+            writeLog ("!! Service {0} is stopped" -f $checkparams[1])
+            if ($script:ServiceChecks.ContainsKey($checkparams[1]))
             {
-                writeLog ("!! Service {0} is stopped" -f $checkparams[1])
-                if ($script:ServiceChecks.ContainsKey($checkparams[1]))
+                $restarttime = $script:ServiceChecks[$checkparams[1]].AddSeconds($duration)
+                writeLog "Seen this service before; restart time is $restarttime"
+                if ($restarttime -lt (get-date))
                 {
-                    $restarttime = $script:ServiceChecks[$checkparams[1]].AddSeconds($duration)
-                    writeLog "Seen this service before; restart time is $restarttime"
-                    if ($restarttime -lt (get-date))
-                    {
-                        writeLog (" -> Starting service {0}" -f $checkparams[1])
-                        $winsrv.Start()
-                    }
-                }
-                else
-                {
-                    writeLog "Not seen this service before, setting restart time -1 hour"
-                    $script:ServiceChecks[$checkparams[1]] = (get-date).AddHours(-1)
+                    writeLog (" -> Starting service {0}" -f $checkparams[1])
+                    $winsrv.Start()
                 }
             }
-            elseif ('StartPending', 'Running' -contains $winsrv.Status)
+            else
             {
-                writeLog "  -Service is running, updating last seen time"
-                $script:ServiceChecks[$checkparams[1]] = get-date
+                writeLog "Not seen this service before, setting restart time -1 hour"
+                $script:ServiceChecks[$checkparams[1]] = (get-date).AddHours(-1)
             }
+        }
+        elseif ('StartPending', 'Running' -contains $winsrv.Status)
+        {
+            writeLog "  -Service is running, updating last seen time"
+            $script:ServiceChecks[$checkparams[1]] = get-date
         }
     }
 }
@@ -3287,12 +3284,12 @@ function XymonClientConfig($cfglines)
         $configmode = 'localonly'
     }
 
+    $script:clientlocalcfg_entries['_configmode_'] = $configmode
+
     # Parse the config - always uses the local file (which may contain
     # config from remote)
     if (test-path -PathType Leaf $script:XymonSettings.clientconfigfile)
     {
-        # make sure the config always contains something
-        $script:clientlocalcfg_entries = @{ '_configmode_' = $configmode }
         $lines = get-content $script:XymonSettings.clientconfigfile
         $currentsection = ''
         $eventlogswantedSeen = 0

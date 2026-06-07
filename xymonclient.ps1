@@ -2561,7 +2561,12 @@ function XymonServiceCheck
         }
         WriteLog ("Checking service {0}" -f $checkparams[1])
 
-        $winsrv = Get-Service -Name $checkparams[1]
+        $winsrv = Get-Service -Name $checkparams[1] -ErrorAction SilentlyContinue
+        if ($winsrv -eq $null)
+        {
+            WriteLog ("ERROR: Service {0} not found" -f $checkparams[1])
+            continue
+        }
         if ($winsrv.Status -eq 'Stopped')
         {
             writeLog ("!! Service {0} is stopped" -f $checkparams[1])

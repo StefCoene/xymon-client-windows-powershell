@@ -3008,25 +3008,23 @@ function DecryptHttpServerPassword
         catch
         {
             WriteLog "Failed to decrypt serverHttpPassword: $_"
-            $serverPassword = ''
+            $serverPassword = $null
         }
     }
     return $serverPassword
 }
 
-function XymonSendViaHttp($msg)
+function XymonSendViaHttp($msg, $filePath)
 {
     WriteLog 'Executing XymonSendViaHttp'
 
     $urls = $script:XymonSettings.serverUrl -split ' '
-
-    $output = ''
-
     foreach ($url in $urls) {
         if ($url -notmatch '^https?://')
         {
             WriteLog "  ERROR: invalid server Url, check config: $url"
-            continue
+            WriteLog 'XymonSendViaHttp finished'
+            return $false
         }
 
         WriteLog "  Using url $url"
@@ -3034,12 +3032,10 @@ function XymonSendViaHttp($msg)
         if ($script:XymonSettings.serverHttpUsername -ne '')
         {
             $serverHttpPassword = DecryptHttpServerPassword
-            if ( $serverHttpPassword -eq '' )
+            if ( $serverHttpPassword -eq $null )
             {
-                WriteLog '  Error in decrypting serverHttpPassword'
                 WriteLog 'XymonSendViaHttp finished'
-                # Return and not continue since we use the same serverHttpPassword for each url
-                return ''
+                return $false
             }
             else
             {
@@ -3055,6 +3051,8 @@ function XymonSendViaHttp($msg)
 
         if ($url -match '^https://')
         {
+            $savedCertCallback = [Net.ServicePointManager]::ServerCertificateValidationCallback
+            [Net.ServicePointManager]::ServerCertificateValidationCallback = {$true}
             try
             {
                 [Net.ServicePointManager]::SecurityProtocol = "tls12, tls11, tls"
@@ -3062,9 +3060,14 @@ function XymonSendViaHttp($msg)
             catch
             {
                 WriteLog "Error setting TLS options (old version of .NET?): $_"
-                continue
+                [Net.ServicePointManager]::ServerCertificateValidationCallback = $savedCertCallback
+                WriteLog 'XymonSendViaHttp finished'
+                return $false
             }
         }
+
+        # AXI: verwijderen van ^M, dit stuurt de procs check volledig in de war
+        $msg = $msg.Replace("`r","")
 
         # no Invoke-RestMethod before Powershell 3.0
         $request = [System.Net.HttpWebRequest]::Create($url)
@@ -3075,47 +3078,56 @@ function XymonSendViaHttp($msg)
             $request.Headers.Add('Authorization', "Basic $encodedAuth")
         }
 
-        # Error at line 3643: Exception calling "GetRequestStream" with "0" argument(s): "The remote name could not be resolved: 'xxxxxxxxxxxxxxxxxxx'"
-        try
-        {
-            $bodyStream = $request.GetRequestStream()
-        }
-        catch
-        {
-            WriteLog "  Exception connecting during GetRequestStream to $($url):`n$($_)"
-            continue
-        }
-
-        # This gives sometimes an error, reason unknown so switch to ::ascii.getbytes
         # $body = [byte[]][char[]]$msg
         $body = [text.encoding]::ascii.getbytes($msg)
-        $bodyStream.Write($body, 0, $body.Length)
 
-        WriteLog "  Connecting to $($url), body length $($body.Length), timeout $($script:XymonSettings.serverHttpTimeoutMs)ms"
         try
         {
-            $response = $request.GetResponse()
-        }
-        catch
-        {
-            WriteLog "  Exception connecting to $($url):`n$($_)"
-            continue
-        }
+            try {
+               $bodyStream = $request.GetRequestStream()
+            }
+            catch {
+               WriteLog "Exception connecting during GetRequestStream to $($url):`n$($_)"
+               WriteLog 'XymonSendViaHttp finished'
+               return $false
+            }
 
-        $statusCode = [int]($response.StatusCode)
-        if ($response.StatusCode -ne [System.Net.HttpStatusCode]::OK)
-        {
-            WriteLog "  FAILED, HTTP response code: $($response.StatusCode) ($statusCode)"
-            continue
-        }
+            $bodyStream.Write($body, 0, $body.Length)
 
-        $responseStream = $response.GetResponseStream()
-        $readStream = New-Object System.IO.StreamReader $responseStream
-        $output = $readStream.ReadToEnd()
-        WriteLog "  Received $($output.Length) bytes from server"
-        $script:LastTransmissionMethod = 'HTTP'
+            WriteLog "  Connecting to $($url), body length $($body.Length), timeout $($script:XymonSettings.serverHttpTimeoutMs)ms"
+            try
+            {
+                $response = $request.GetResponse()
+            }
+            catch
+            {
+                WriteLog "  Exception connecting to $($url):`n$($_)"
+                WriteLog 'XymonSendViaHttp finished'
+                return $false
+            }
+
+            $statusCode = [int]($response.StatusCode)
+            if ($response.StatusCode -ne [System.Net.HttpStatusCode]::OK)
+            {
+                WriteLog "  FAILED, HTTP response code: $($response.StatusCode) ($statusCode)"
+                WriteLog 'XymonSendViaHttp finished'
+                return $false
+            }
+
+            $responseStream = $response.GetResponseStream()
+            $readStream = New-Object System.IO.StreamReader $responseStream
+            $output = $readStream.ReadToEnd()
+            WriteLog "  Received $($output.Length) bytes from server"
+            $script:LastTransmissionMethod = 'HTTP'
+        }
+        finally
+        {
+            if ($savedCertCallback -ne $null)
+            {
+                [Net.ServicePointManager]::ServerCertificateValidationCallback = $savedCertCallback
+            }
+        }
     }
-
     WriteLog 'XymonSendViaHttp finished'
     return $output
 }
@@ -3127,7 +3139,35 @@ function XymonSend($msg, $servers, $filePath)
 
     if ($script:XymonSettings.serverUrl -ne '')
     {
-        $outputBuffer = XymonSendViaHttp $msg
+        $outputBuffer = XymonSendViaHttp $msg $filePath
+
+        if ( $outputBuffer -ne $false)
+        {
+            $line = ($msg -split [environment]::newline)[0]
+            $line = $line -replace '[\t|\s]+', ' '
+            if  ($line -match '(download) (.*$)' )
+            {
+                if ($filePath -eq $null -or $filePath -eq "")
+                {
+                    # save it locally with the same name
+                    $filePath = split-path -leaf $matches[2]
+                }
+
+                # Save in unix format so the hash is the same as on the (Linux) xymon server
+                $fileBytes = [System.Text.Encoding]::UTF8.GetBytes($outputBuffer)
+                if ($PSVersionTable.PSVersion.Major -ge 6)
+                {
+                    Set-Content $filePath $fileBytes -AsByteStream
+                }
+                else
+                {
+                    Set-Content $filePath $fileBytes -Encoding Byte
+                }
+            }
+        } else {
+            # Make sure we return a string, not a boolean
+            $outputBuffer = ""
+        }
     }
     else
     {

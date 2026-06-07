@@ -3357,33 +3357,17 @@ function XymonClientConfig($cfglines)
         # parse maxloop if it's there (add if not)
         $maxloop = @($script:clientlocalcfg_entries.keys | `
             where { $_ -match '^maxloop:([0-9]+)$' })
-        if ($maxloop.length -gt 1)
-        {
-            WriteLog 'ERROR: more than one maxloop directive in config!'
-        }
-        elseif ($maxloop.Length -eq 1)
+        if ($maxloop.length -ge 1)
         {
             $script:maxloop = [int]$matches[1]
-        }
-        else
-        {
-            $script:maxloop = 0
         }
 
         # parse slowscanrate if it's there (add if not)
         $slowscanrate = @($script:clientlocalcfg_entries.keys | `
             where { $_ -match '^slowscanrate:([0-9]+)$' })
-        if ($slowscanrate.length -gt 1)
-        {
-            WriteLog 'ERROR: more than one slowscanrate directive in config!'
-        }
-        elseif ($slowscanrate.Length -eq 1)
+        if ($slowscanrate.length -ge 1)
         {
             $script:slowscanrate = [int]$matches[1]
-        }
-        else
-        {
-            $script:slowscanrate = 72
         }
     }
     WriteLog "Cached config now contains: "

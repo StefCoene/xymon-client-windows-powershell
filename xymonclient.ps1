@@ -1,4 +1,4 @@
-﻿# ###################################################################################
+# ###################################################################################
 #
 # Xymon client for Windows
 #
@@ -8,6 +8,7 @@
 # Copyright (C) 2010 Henrik Storner <henrik@hswn.dk>
 # Copyright (C) 2010 David Baldwin
 # Copyright (c) 2014-2019 Accenture (zak.beck@accenture.com)
+# Copyright (c) 2026 Stef Coene <stef.coene@docum.org>
 #
 #   Contributions to this project were made by Accenture starting from June 2014.
 #   For a list of modifications, please see the SVN change log.

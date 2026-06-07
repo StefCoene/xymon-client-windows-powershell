@@ -3563,7 +3563,7 @@ function XymonDownloadFromFile([string]$downloadPath, [string]$destinationFilePa
         return $false
     }
 
-    WriteLog "Copying $downloadPath to $destinationPath"
+    WriteLog "Copying $downloadPath to $destinationFilePath"
     try
     {
         Copy-Item  $downloadPath $destinationFilePath -Force

@@ -3642,6 +3642,7 @@ function XymonDownloadFromURL([string]$downloadURL, [string]$destinationFilePath
         # for self-signed certificates, turn off cert validation
         # TODO: make this a config option
         # TODO: at some point, deprecate tls1.1 & 1.0
+        $savedCertCallback = [Net.ServicePointManager]::ServerCertificateValidationCallback
         [Net.ServicePointManager]::ServerCertificateValidationCallback = {$true}
         if ($downloadURL -match '^https://')
         {
@@ -3655,7 +3656,18 @@ function XymonDownloadFromURL([string]$downloadURL, [string]$destinationFilePath
                 return $false
             }
         }
-        $client.DownloadFile($downloadURL, $destinationFilePath)
+
+        try {
+            $client.DownloadFile($downloadURL, $destinationFilePath)
+        }
+        catch
+        {
+            $e = $_.Exception
+            WriteLog "Error during DownloadFile: $($e.Message)"
+            [Net.ServicePointManager]::ServerCertificateValidationCallback = $savedCertCallback
+            return $false
+        }
+        [Net.ServicePointManager]::ServerCertificateValidationCallback = $savedCertCallback
     }
     catch
     {
@@ -3673,14 +3685,14 @@ function XymonDownloadFromServer([string]$ServerPath, [string]$destinationFilePa
     try
     {
         # should work transparently through any intermediate proxies
-        XymonSend $message $script:XymonSettings.serversList $destinationFilePath
+        $output = XymonSend $message $script:XymonSettings.serversList $destinationFilePath
+        return $output
     }
     catch
     {
         WriteLog "Error downloading: $_"
         return $false
     }
-    return $true
 }
 
 function GetHashValueForFile([string] $filename, [string] $hashAlgorithm)

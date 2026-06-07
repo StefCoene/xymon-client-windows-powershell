@@ -3348,13 +3348,13 @@ function XymonClientConfig($cfglines)
     $configmode = ''
     if ($script:XymonSettings.clientremotecfgexec -ne 0)
     {
-        WriteLog "Using new remote config, saving locally"
+        WriteLog "Using remote config, saving locally"
         $clientlocalcfg >$script:XymonSettings.clientconfigfile
         $configmode = 'remote'
     }
     else
     {
-        WriteLog "Using local config only (if one exists), clientremotecfgexec = 0"
+        WriteLog "Using local config only (if one exists), clientremotecfgexec = 0 or not set"
         $configmode = 'localonly'
     }
 
@@ -3392,7 +3392,7 @@ function XymonClientConfig($cfglines)
                 -or $l -match '^config' `
                 )
             {
-                WriteLog "Found a command: $l"
+                WriteLog "Found an option: $l"
                 $currentsection = $l
                 # merging for eventlog include/ignore
                 if (-not ($script:clientlocalcfg_entries.ContainsKey($currentsection)))
@@ -3735,7 +3735,7 @@ function XymonCheckUpdate
 
             if ([version]$Version -lt [version]$matches[1])
             {
-                WriteLog "Running version $Version; config version $($matches[1]); attempting upgrade"
+                WriteLog "Running version $Version; config version $($matches[1]); attempting upgrade from $($matches[2])"
 
                 # $matches[2] can be either a http[s] URL, bb, xymon, fake URL or a file path
                 $updatePath = $matches[2]
@@ -3813,7 +3813,7 @@ function XymonCheckUpdate
             }
             else
             {
-                WriteLog "Update: Running version $Version; config version $($matches[1]); doing nothing"
+                WriteLog "Update: Running version $Version; config version $($matches[1]) from $($matches[2]); doing nothing"
             }
         }
     }
@@ -4080,7 +4080,7 @@ function XymonManageExternals
 
             if ($downloadFlag)
             {
-                WriteLog "External script $externalScriptName not found or requires update, downloading"
+                WriteLog "External script $externalScriptName not found or requires update, downloading from $externalURI"
                 try
                 {
                     $result = DownloadAndVerify -URI $externalURI -name $externalScriptName `
@@ -4468,7 +4468,7 @@ while ($true) {
     $loopcount++
     $UTCstr = get-date -Date ((get-date).ToUniversalTime()) -uformat '%Y-%m-%d %H:%M:%S'
     WriteLog "UTC date/time: $UTCstr"
-    WriteLog "This is collection number $($script:collectionnumber), loop count $loopcount"
+    WriteLog "This is collection number $($script:collectionnumber), loopcount $($loopcount)"
     WriteLog "Next 'slow scan' is when loopcount reaches $($script:slowscanrate)"
     if ($script:maxloop -gt 0)
     {

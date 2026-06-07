@@ -219,7 +219,6 @@ public class GetProcessOwner
     }
 }
 '@
-
 $type = Add-Type $getprocessowner
 
 $getprocesscmdline = @'
@@ -622,7 +621,6 @@ $getprocesscmdline = @'
         }
     }
 '@
-
 $cp = new-object System.CodeDom.Compiler.CompilerParameters
 $cp.CompilerOptions = "/unsafe"
 $dummy = $cp.ReferencedAssemblies.Add('System.dll')
@@ -899,10 +897,11 @@ function XymonConfig($startedWithArgs)
     }
     XymonInit
 }
-#'
+
 function XymonInitXML($startedWithArgs)
 {
     $xmlconfig = [xml](Get-Content $XymonClientCfg)
+
     $script:XymonSettings = $xmlconfig.XymonSettings
 
     # if serverhttppassword is populated and not encrypted, encrypt it
@@ -939,7 +938,7 @@ function XymonInit
     # make sure the config always contains something
     $script:clientlocalcfg_entries = @{}
 
-    if($script:XymonSettings -eq $null) {
+    if ($script:XymonSettings -eq $null) {
         $script:XymonSettings = New-Object Object
     }
 
@@ -1391,7 +1390,6 @@ function XymonProcesses
     WriteLog "XymonProcesses finished."
 }
 
-
 function XymonCpu
 {
     WriteLog "XymonCpu start"
@@ -1552,7 +1550,6 @@ function XymonMsgs
       </Query>
     </QueryList>
 '@
-
     $eventLevels = @{
         '0' = 'Information';
         '1' = 'Critical';

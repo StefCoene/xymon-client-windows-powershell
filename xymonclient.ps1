@@ -1,5 +1,5 @@
-﻿# ###################################################################################
-# 
+# ###################################################################################
+#
 # Xymon client for Windows
 #
 # This is a client implementation for Windows systems that support the
@@ -8,6 +8,7 @@
 # Copyright (C) 2010 Henrik Storner <henrik@hswn.dk>
 # Copyright (C) 2010 David Baldwin
 # Copyright (c) 2014-2019 Accenture (zak.beck@accenture.com)
+# Copyright (c) 2026 Stef Coene <stef.coene@docum.org>
 #
 #   Contributions to this project were made by Accenture starting from June 2014.
 #   For a list of modifications, please see the SVN change log.
@@ -16,12 +17,12 @@
 #  modify it under the terms of the GNU General Public License
 #  as published by the Free Software Foundation; either version 2
 #  of the License, or (at your option) any later version.
-#  
+#
 #  This program is distributed in the hope that it will be useful,
 #  but WITHOUT ANY WARRANTY; without even the implied warranty of
 #  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #  GNU General Public License for more details.
-#  
+#
 #  You should have received a copy of the GNU General Public License
 #  along with this program; if not, write to the Free Software
 #  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
@@ -44,7 +45,16 @@ $Version = '2.42'
 $XymonClientVersion = "${Id}: xymonclient.ps1  $Version 2019-03-11 zak.beck@accenture.com"
 # detect if we're running as 64 or 32 bit
 $XymonRegKey = $(if([System.IntPtr]::Size -eq 8) { "HKLM:\SOFTWARE\Wow6432Node\XymonPSClient" } else { "HKLM:\SOFTWARE\XymonPSClient" })
-$XymonClientCfg = join-path $xymondir 'xymonclient_config.xml'
+
+if ( -not $env:XYMONCLIENTCFG )
+{
+   $XymonClientCfg = join-path $xymondir 'xymonclient_config.xml'
+}
+else
+{
+   $XymonClientCfg = join-path $xymondir $env:XYMONCLIENTCFG
+}
+
 $ServiceChecks = @{}
 $MaintChecks = @{}
 
@@ -69,7 +79,7 @@ public class GetProcessOwner
 
     const int ERROR_NO_MORE_ITEMS = 259;
 
-    enum TOKEN_INFORMATION_CLASS                           
+    enum TOKEN_INFORMATION_CLASS
     {
         TokenUser = 1,
         TokenGroups,
@@ -160,14 +170,14 @@ public class GetProcessOwner
     private static bool ProcessTokenToSid(IntPtr token, out IntPtr SID)
     {
         TOKEN_USER tokUser;
-        const int bufLength = 256;            
+        const int bufLength = 256;
         IntPtr tu = Marshal.AllocHGlobal(bufLength);
         bool ret = false;
         SID = IntPtr.Zero;
         try
         {
             int cb = bufLength;
-            ret = GetTokenInformation(token, 
+            ret = GetTokenInformation(token,
                     TOKEN_INFORMATION_CLASS.TokenUser, tu, cb, ref cb);
             if (ret)
             {
@@ -187,30 +197,29 @@ public class GetProcessOwner
     }
 
     public static string GetProcessOwnerByPId(int PID)
-    {                                                                  
-        IntPtr _SID = IntPtr.Zero;                                       
-        string SID = String.Empty;                                             
-        try                                                             
-        {                                                                
+    {
+        IntPtr _SID = IntPtr.Zero;
+        string SID = String.Empty;
+        try
+        {
             Process process = Process.GetProcessById(PID);
             if (DumpUserInfo(process.Handle, out _SID))
-            {                                                                    
+            {
                 ConvertSidToStringSid(_SID, ref SID);
             }
 
             // convert SID to username
             string account = new System.Security.Principal.SecurityIdentifier(SID).Translate(typeof(System.Security.Principal.NTAccount)).ToString();
 
-            return account;                                          
-        }                                                                           
+            return account;
+        }
         catch
-        {                                                                           
+        {
             return "Unknown";
         }
     }
 }
 '@
-
 $type = Add-Type $getprocessowner
 
 $getprocesscmdline = @'
@@ -240,7 +249,7 @@ $getprocesscmdline = @'
             );
 
         private const int FLS_MAXIMUM_AVAILABLE = 128;
-        
+
         //Win32
         //private const int GDI_HANDLE_BUFFER_SIZE = 34;
         //Win64
@@ -613,7 +622,6 @@ $getprocesscmdline = @'
         }
     }
 '@
-
 $cp = new-object System.CodeDom.Compiler.CompilerParameters
 $cp.CompilerOptions = "/unsafe"
 $dummy = $cp.ReferencedAssemblies.Add('System.dll')
@@ -702,8 +710,8 @@ $volumeinfo = @'
         }
 
         public class Volume
-        {            
-            public string VolumeGUID;            
+        {
+            public string VolumeGUID;
             public string FileSys;
             public DriveType DriveType;
             public uint DriveTypeId;
@@ -711,7 +719,7 @@ $volumeinfo = @'
             public string MountPoint;
             public string FileSystemName;
             public string VolumeName;
-            
+
             public ulong TotalBytes;
             public ulong FreeBytes;
             public ulong UsedBytes;
@@ -732,7 +740,7 @@ $volumeinfo = @'
                 StringBuilder volname = new StringBuilder(261);
                 StringBuilder fsname = new StringBuilder(261);
                 uint flagsDummy, maxlenDummy;
-                GetVolumeInformation(drive, volname, volname.Capacity, 
+                GetVolumeInformation(drive, volname, volname.Capacity,
                     out v.SerialNumber, out maxlenDummy, out flagsDummy, fsname, fsname.Capacity);
                 v.FileSystemName = fsname.ToString();
                 v.VolumeName = volname.ToString();
@@ -764,7 +772,7 @@ $volumeinfo = @'
 
             if (!GetVolumePathNamesForVolumeNameW(volumeDeviceName, buffer, lpcchReturnLength, ref lpcchReturnLength))
             {
-                throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());                
+                throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());
             }
 
             string[] mounts = buffer.Split('\0');
@@ -777,7 +785,7 @@ $volumeinfo = @'
                         Volume v = new Volume();
                         v.VolumeGUID = volumeDeviceName;
                         v.MountPoint = mount;
-                        v.DriveType = GetDriveType(mount);                        
+                        v.DriveType = GetDriveType(mount);
                         v.DriveTypeId = (uint)v.DriveType;
                         if (mount[0] >= 'A' && mount[0] <= 'Z')
                         {
@@ -786,7 +794,7 @@ $volumeinfo = @'
                         if (mount.Length > 3)
                         {
                             // per BBWin, replace spaces with underscore in mountpoint name
-                            v.FileSys = mount.Substring(3, mount.LastIndexOf('\\') - 3).Replace(' ', '_');                            
+                            v.FileSys = mount.Substring(3, mount.LastIndexOf('\\') - 3).Replace(' ', '_');
                         }
                         GetVolumeDetails(mount, v);
                         volumes.Add(v);
@@ -799,7 +807,7 @@ $volumeinfo = @'
                 Volume v = new Volume();
                 v.VolumeGUID = volumeDeviceName;
                 v.MountPoint = "";
-                v.DriveType = GetDriveType(volumeDeviceName);                
+                v.DriveType = GetDriveType(volumeDeviceName);
                 v.DriveTypeId = 99; // special value for unmounted
                 v.FileSys = "unmounted";
 
@@ -847,7 +855,7 @@ $getsysteminfoType = @'
             public IntPtr MinimumApplicationAddress; // (long)void*
             public IntPtr MaximumApplicationAddress; // (long)void*
             public IntPtr ActiveProcessorMask; // DWORD*
-            public uint NumberOfProcessors; // DWORD 
+            public uint NumberOfProcessors; // DWORD
             public uint ProcessorType; // DWORD
             public uint AllocationGranularity; // DWORD
             public ushort ProcessorLevel; // WORD
@@ -869,7 +877,7 @@ $getsysteminfoType = @'
 $type = Add-Type $getsysteminfoType
 
 }
-#endregion 
+#endregion
 
 function SetIfNot($obj,$key,$value)
 {
@@ -890,10 +898,11 @@ function XymonConfig($startedWithArgs)
     }
     XymonInit
 }
-#'
+
 function XymonInitXML($startedWithArgs)
 {
     $xmlconfig = [xml](Get-Content $XymonClientCfg)
+
     $script:XymonSettings = $xmlconfig.XymonSettings
 
     # if serverhttppassword is populated and not encrypted, encrypt it
@@ -927,13 +936,16 @@ function XymonInitRegistry
 
 function XymonInit
 {
-    if($script:XymonSettings -eq $null) {
+    # make sure the config always contains something
+    $script:clientlocalcfg_entries = @{}
+
+    if ($script:XymonSettings -eq $null) {
         $script:XymonSettings = New-Object Object
-    } 
+    }
 
     $servers = $script:XymonSettings.servers
     SetIfNot $script:XymonSettings serversList $servers
-    if ($script:XymonSettings.servers -match " ") 
+    if ($script:XymonSettings.servers -match " ")
     {
         $script:XymonSettings.serversList = $script:XymonSettings.servers.Split(" ")
     }
@@ -949,7 +961,7 @@ function XymonInit
 
     $wanteddisks = $script:XymonSettings.wanteddisks
     SetIfNot $script:XymonSettings wanteddisksList $wanteddisks
-    if ($script:XymonSettings.wanteddisks -match " ") 
+    if ($script:XymonSettings.wanteddisks -match " ")
     {
         $script:XymonSettings.wanteddisksList = $script:XymonSettings.wanteddisks.Split(" ")
     }
@@ -961,21 +973,21 @@ function XymonInit
     # Params for default clientname
     SetIfNot $script:XymonSettings clientfqdn 1 # 0 = unqualified, 1 = fully-qualified
     SetIfNot $script:XymonSettings clientlower 1 # 0 = unqualified, 1 = fully-qualified
-    
-    if ($script:XymonSettings.clientname -eq $null -or $script:XymonSettings.clientname -eq "") 
-    { 
+
+    if ($script:XymonSettings.clientname -eq $null -or $script:XymonSettings.clientname -eq "")
+    {
         # set name based on rules; first try IP properties
         $ipProperties = [System.Net.NetworkInformation.IPGlobalProperties]::GetIPGlobalProperties()
         $clname  = $ipProperties.HostName
-        if ($clname -ne '' -and $script:XymonSettings.clientfqdn -eq 1 -and ($ipProperties.DomainName -ne $null)) 
-        { 
+        if ($clname -ne '' -and $script:XymonSettings.clientfqdn -eq 1 -and ($ipProperties.DomainName -ne $null))
+        {
             $clname += "." + $ipProperties.DomainName
         }
         if ($clname -eq '')
         {
             # try environment
             $clname = $Env:COMPUTERNAME
-            if ($clname -ne '' -and $script:XymonSettings.clientfqdn -eq 1 -and ($Env:USERDNSDOMAIN -ne $null)) 
+            if ($clname -ne '' -and $script:XymonSettings.clientfqdn -eq 1 -and ($Env:USERDNSDOMAIN -ne $null))
             {
                 $clname += '.' + $Env:USERDNSDOMAIN
             }
@@ -999,7 +1011,6 @@ function XymonInit
     SetIfNot $script:XymonSettings loopinterval 300 # seconds to repeat client reporting loop
     SetIfNot $script:XymonSettings maxlogage 60 # minutes age for event log reporting
     SetIfNot $script:XymonSettings MaxEvents 5000 # maximum number of events per event log
-    SetIfNot $script:XymonSettings slowscanrate 72 # repeats of main loop before collecting slowly changing information again
     SetIfNot $script:XymonSettings reportevt 1 # scan eventlog and report (can be very slow)
     SetIfNot $script:XymonSettings EnableWin32_Product 0 # 0 = do not use Win32_product, 1 = do
                         # see http://support.microsoft.com/kb/974524 for reasons why Win32_Product is not recommended!
@@ -1018,9 +1029,11 @@ function XymonInit
     SetIfNot $script:XymonSettings GetProcessInfoCommandLine 1 # get process command line 1 = yes, 0 = no
     SetIfNot $script:XymonSettings GetProcessInfoOwner 1 # get process owner 1 = yes, 0 = no
 
+    $configdir = Join-Path $xymondir 'etc'
     $extscript = Join-Path $xymondir 'ext'
     $extdata = Join-Path $xymondir 'tmp'
     $localdata = Join-Path $xymondir 'local'
+    SetIfNot $script:XymonSettings configlocation $configdir
     SetIfNot $script:XymonSettings externalscriptlocation $extscript
     SetIfNot $script:XymonSettings externaldatalocation $extdata
     SetIfNot $script:XymonSettings localdatalocation $localdata
@@ -1030,6 +1043,8 @@ function XymonInit
     $script:externals = @{}
     $script:diskpartData = ''
     $script:LastTransmissionMethod = 'Unknown'
+    $script:maxloop = 0    # overwritten by XymonClientConfig if maxloop directive is present in server config
+    $script:slowscanrate = 72 # overwritten by XymonClientConfig if slowscanrate directive is present in server config
 
     $script:HaveCmd = @{}
     foreach($cmd in "query","qwinsta") {
@@ -1040,7 +1055,7 @@ function XymonInit
     "netifs","svcprocs","localdatetime","uptime","usercount",`
     "XymonProcsCpu","XymonProcsCpuTStart","XymonProcsCpuElapsed") `
     | %{ if (get-variable -erroraction SilentlyContinue $_) { Remove-Variable $_ }}
-    
+
 }
 
 function XymonProcsCPUUtilisation
@@ -1064,7 +1079,7 @@ function XymonProcsCPUUtilisation
         $script:XymonProcsCpuTStart = (Get-Date).Ticks
     }
     $script:XymonProcsCpuElapsed *= $script:numcores
-    
+
     foreach ($p in $script:procs) {
         # store the process name in XymonProcsCpu
         # and if $p.name differs but id matches, need to pick up new command line etc and zero counters
@@ -1158,7 +1173,7 @@ function XymonCollectInfo([boolean] $isSlowScan)
     try
     {
         $volumes = [VolumeInfo]::GetVolumes()
-        foreach ($disktype in $script:XymonSettings.wanteddisksList) { 
+        foreach ($disktype in $script:XymonSettings.wanteddisksList) {
             $mydisks += @( ($volumes | where { $_.DriveTypeId -eq $disktype } ))
         }
     }
@@ -1185,7 +1200,7 @@ function XymonCollectInfo([boolean] $isSlowScan)
     WriteLog "XymonCollectInfo: Date processing (uses WMI data)"
     $script:localdatetime = $osinfo.ConvertToDateTime($osinfo.LocalDateTime)
     $script:uptime = $localdatetime - $osinfo.ConvertToDateTime($osinfo.LastBootUpTime)
-    
+
     WriteLog "XymonCollectInfo: Adding CPU usage etc to main process data"
     XymonProcesses
 
@@ -1232,7 +1247,7 @@ function du([string]$dir,[int]$clsize=0)
         if( $_.Attributes -like "*Directory*" ) {
            $dulist += du ("{0}\{1}" -f [string]$dir,$_.Name) $clsize | out-string
            $sum += $dulist.Split("`n")[-2].Split("`t")[0] # get size for subdir
-        } else { 
+        } else {
            $sum += filesize $_ $clsize
         }
     }
@@ -1243,7 +1258,7 @@ function XymonPrintProcess($pobj, $name, $pct)
 {
     $pcpu = (("{0:F1}" -f $pct) + "`%").PadRight(8)
     $ppid = ([string]($pobj.Id)).PadRight(9)
-    
+
     if ($name.length -gt 30) { $name = $name.substring(0, 30) }
     $pname = $name.PadRight(32)
 
@@ -1302,7 +1317,7 @@ function XymonProcesses
     # gather process and timing information and add this to $script:procs
     # variable
     # XymonCpu and XymonProcs use this information to output
- 
+
     WriteLog "XymonProcesses start"
 
     foreach ($p in $script:procs)
@@ -1313,13 +1328,13 @@ function XymonProcesses
         else {
             $procname = $p.Name
         }
-           
+
         Add-Member -MemberType NoteProperty `
             -Name XymonProcessName -Value $procname `
             -InputObject $p
 
         $thisp = $script:XymonProcsCpu[$p.Id]
-        if ($thisp -ne $null -and $thisp[3] -eq $true) 
+        if ($thisp -ne $null -and $thisp[3] -eq $true)
         {
             if ($script:XymonProcsCpuElapsed -gt 0)
             {
@@ -1336,7 +1351,7 @@ function XymonProcesses
                 -Name Owner -Value $thisp[5] `
                 -InputObject $p
         }
-        else 
+        else
         {
             $usedpct = 0
         }
@@ -1348,7 +1363,7 @@ function XymonProcesses
         $elapsedRuntime = 0
         if ($p.StartTime -ne $null)
         {
-            $elapsedRuntime = ($script:localdatetime - $p.StartTime).TotalMinutes 
+            $elapsedRuntime = ($script:localdatetime - $p.StartTime).TotalMinutes
         }
         Add-Member -MemberType NoteProperty `
             -Name ElapsedSinceStart -Value $elapsedRuntime `
@@ -1376,7 +1391,6 @@ function XymonProcesses
     WriteLog "XymonProcesses finished."
 }
 
-
 function XymonCpu
 {
     WriteLog "XymonCpu start"
@@ -1397,13 +1411,13 @@ function XymonCpu
 
         $script:procs | Sort-Object -Descending { $_.CPUPercent } `
             | foreach `
-            { 
+            {
                 $skipFlag = $false
                 if ($script:clientlocalcfg_entries.ContainsKey('slimmode'))
                 {
                     if ($script:clientlocalcfg_entries.slimmode.ContainsKey('processes'))
                     {
-                        # skip this process if we are in slimmode and this process is not one of the 
+                        # skip this process if we are in slimmode and this process is not one of the
                         # requested processes
                         if ($script:clientlocalcfg_entries.slimmode.processes -notcontains $_.XymonProcessName)
                         {
@@ -1411,10 +1425,10 @@ function XymonCpu
                         }
                     }
                 }
-                
+
                 if (!$skipFlag)
                 {
-                    XymonPrintProcess $_ $_.XymonProcessName $_.CPUPercent 
+                    XymonPrintProcess $_ $_.XymonProcessName $_.CPUPercent
                 }
             }
     }
@@ -1465,7 +1479,7 @@ function XymonDisk
         $dfKB = "{0:F0}" -f ($d.FreeBytes / 1KB); $dfGB = "{0:F2}" -f ($d.FreeBytes / 1GB)
 
         $mountpoint = "/FIXED/$($d.MountPoint)"
-       
+
         "{0,-$FilesysWidth} {1,12} {2,12} {3,12} {4,9:0}% {5,-$MountpointWidth} {6,-$LabelWidth} {7}" -f `
             $d.FileSys, `
             $dsKB, `
@@ -1530,15 +1544,14 @@ function XymonMsgs
     #   {0} = log name e.g. Application
     #   {1} = milliseconds - how far back in time to go
     $filterXMLTemplate = `
-@' 
+@'
     <QueryList>
       <Query Id="0" Path="{0}">
         <Select Path="{0}">*[System[TimeCreated[timediff(@SystemTime) &lt;= {1}] and ({2})]]</Select>
       </Query>
     </QueryList>
 '@
-
-    $eventLevels = @{ 
+    $eventLevels = @{
         '0' = 'Information';
         '1' = 'Critical';
         '2' = 'Error';
@@ -1557,7 +1570,7 @@ function XymonMsgs
     # each key is an event log name
     # each value is an array of wanted levels
     # defaults set below
-    # can be overridden by eventlogswanted config 
+    # can be overridden by eventlogswanted config
     $wantedEventLogs = `
         @{ `
             'Application' = @('Critical', 'Warning', 'Error', 'Information', 'Verbose'); `
@@ -1626,7 +1639,7 @@ function XymonMsgs
                 }
                 else
                 {
-                    # if no individual levels specified, then use the defaults - 
+                    # if no individual levels specified, then use the defaults -
                     # either specified in match 3 or script default
                     $wantedEventLogs[$log] = $wantedLevels
                 }
@@ -1669,7 +1682,7 @@ function XymonMsgs
 
                 $logFilterXML = $filterXMLTemplate -f $l, $sinceMs, ($levelcriteria -join ' or ')
                 WriteLog "Log filter $logFilterXML"
-                
+
                 try
                 {
                     WriteLog 'Setting thread/UI culture to en-US'
@@ -1695,77 +1708,74 @@ function XymonMsgs
 
                 $totalEntries = $logentries.Length
                 WriteLog "Event log $l entries since last scan: $($logentries.Length)"
-                
+
                 # filter based on clientlocal.cfg / clientconfig.cfg
-                if ($script:clientlocalcfg_entries -ne $null)
+                $filterkey = $script:clientlocalcfg_entries.keys | where { $_ -match "^eventlog\:$l" }
+                if ($filterkey -ne $null -and $script:clientlocalcfg_entries.ContainsKey($filterkey))
                 {
-                    $filterkey = $script:clientlocalcfg_entries.keys | where { $_ -match "^eventlog\:$l" }
-                    if ($filterkey -ne $null -and $script:clientlocalcfg_entries.ContainsKey($filterkey))
+                    WriteLog "Found a configured filter for log $l"
+
+                    # ignore / include - include has priority over ignore
+                    # so if there are any include filters, they get priority and ignores are disregarded
+                    $filters = @( $script:clientlocalcfg_entries[$filterkey] | where { $_ -match '^include ' } )
+                    $filterMode = 'include'
+                    if ($filters -eq $null -or $filters.Length -eq 0)
                     {
-                        WriteLog "Found a configured filter for log $l"
-
-                        # ignore / include - include has priority over ignore
-                        # so if there are any include filters, they get priority and ignores are disregarded
-                        $filters = @( $script:clientlocalcfg_entries[$filterkey] | where { $_ -match '^include ' } )
-                        $filterMode = 'include'
-                        if ($filters -eq $null -or $filters.Length -eq 0)
-                        {
-                            $filters = @( $script:clientlocalcfg_entries[$filterkey] | where { $_ -match '^ignore ' } )
-                            $filterMode = 'exclude'
-                        }
-                        WriteLog "Filter mode: $filterMode Filter entries: $($filters.Length)"
-
-                        # process filters if we have one or the other
-                        $filterCount = 0
-                        $output = @()
-                        foreach ($entry in $logentries)
-                        {
-                            if ($filterMode -eq 'exclude')
-                            {
-                                $excludeItem = $false
-                                foreach ($filter in $filters)
-                                {
-                                    $filter = $filter -replace '^ignore ', ''
-                                    if ($entry.ProviderName -match $filter -or $entry.Message -match $filter)
-                                    {
-                                        ++$filterCount
-                                        $excludeItem = $true
-                                        break
-                                    }
-                                }
-                                if (-not $excludeItem)
-                                {
-                                    $output += $entry
-                                }
-                            }
-                            elseif ($filterMode -eq 'include')
-                            {
-                                $includeItem = $false
-                                foreach ($filter in $filters)
-                                {
-                                    $filter = $filter -replace '^include ', ''
-                                    if ($entry.ProviderName -match $filter -or $entry.Message -match $filter)
-                                    {
-                                        ++$filterCount
-                                        $includeItem = $true
-                                        break
-                                    }
-                                }
-                                if ($includeItem)
-                                {
-                                    $output += $entry
-                                }
-                            }
-                        }
-                        $logentries = $output
-                        WriteLog "Starting entries: $($totalEntries)  Entries filtered: $($filterCount)  Remaining entries: $($logentries.Count)"
+                        $filters = @( $script:clientlocalcfg_entries[$filterkey] | where { $_ -match '^ignore ' } )
+                        $filterMode = 'exclude'
                     }
+                    WriteLog "Filter mode: $filterMode Filter entries: $($filters.Length)"
+
+                    # process filters if we have one or the other
+                    $filterCount = 0
+                    $output = @()
+                    foreach ($entry in $logentries)
+                    {
+                        if ($filterMode -eq 'exclude')
+                        {
+                            $excludeItem = $false
+                            foreach ($filter in $filters)
+                            {
+                                $filter = $filter -replace '^ignore ', ''
+                                if ($entry.ProviderName -match $filter -or $entry.Message -match $filter)
+                                {
+                                    ++$filterCount
+                                    $excludeItem = $true
+                                    break
+                                }
+                            }
+                            if (-not $excludeItem)
+                            {
+                                $output += $entry
+                            }
+                        }
+                        elseif ($filterMode -eq 'include')
+                        {
+                            $includeItem = $false
+                            foreach ($filter in $filters)
+                            {
+                                $filter = $filter -replace '^include ', ''
+                                if ($entry.ProviderName -match $filter -or $entry.Message -match $filter)
+                                {
+                                    ++$filterCount
+                                    $includeItem = $true
+                                    break
+                                }
+                            }
+                            if ($includeItem)
+                            {
+                                $output += $entry
+                            }
+                        }
+                    }
+                    $logentries = $output
+                    WriteLog "Starting entries: $($totalEntries)  Entries filtered: $($filterCount)  Remaining entries: $($logentries.Count)"
                 }
 
-                if ($logentries -ne $null) 
+                if ($logentries -ne $null)
                 {
                     WriteLog "Entries to add to payload: $($logentries.Count) "
-                    foreach ($entry in $logentries) 
+                    foreach ($entry in $logentries)
                     {
                         $level = 'Unknown'
                         if ($eventLevels.ContainsKey($entry.Level.ToString()))
@@ -1777,7 +1787,7 @@ function XymonMsgs
                             "[$($entry.Id)] - " + `
                             [string]$entry.ProviderName + " - " + `
                             [string]$entry.Message + [environment]::newline
-                        
+
                         if ($payload.Length -gt $maxpayloadlength)
                         {
                             WriteLog "Payload length reached $($payload.Length), greater than $($maxpayloadlength)"
@@ -1918,7 +1928,7 @@ function XymonLogCheckFile([string]$file,$sizemax=0, $positions=6)
     else
     {
         WriteLog "Cannot open / resolve $file"
-        "ERROR: Cannot open / resolve $file" 
+        "ERROR: Cannot open / resolve $file"
     }
     WriteLog "XymonLogCheckFile finished"
 }
@@ -1942,7 +1952,7 @@ function XymonDirSize
 
                 if (test-path $_ -PathType Container)
                 {
-                    # could use "get-childitem ... -recurse | measure ..." here 
+                    # could use "get-childitem ... -recurse | measure ..." here
                     # but that does not work well when there are many files/subfolders
                     $size = $objFSO.GetFolder($_).Size
                 }
@@ -1984,7 +1994,7 @@ function XymonDirSize
                     $alertcolour = 'green'
                 }
 
-                # report out - 
+                # report out -
                 #  {0} = colour (matches[4])
                 #  {1} = folder name
                 #  {2} = folder size
@@ -1994,7 +2004,7 @@ function XymonDirSize
                     'height="16" width="16" border="0">' +`
                     '{1} size is {2} bytes. Alert if {3} {4} bytes.<br>') `
                     -f $alertcolour, $_, $size, $conditiontype, $matches[3], $script:XymonSettings.servergiflocation)
-                # set group colour to colour if it is not already set to a 
+                # set group colour to colour if it is not already set to a
                 # higher alert state colour
                 if ($groupcolour -eq 'green' -and $alertcolour -eq 'yellow')
                 {
@@ -2039,7 +2049,7 @@ function XymonDirTime
                 {
                     $minutesdiff = ((get-date) - (Get-Item $_ -ErrorAction Stop).LastWriteTime).TotalMinutes
                 }
-                catch 
+                catch
                 {
                     $outputtext += (('<img src="{2}{0}.gif" alt="{0}"' +`
                         'height="16" width="16" border="0">' +`
@@ -2075,7 +2085,7 @@ function XymonDirTime
                     {
                         $alertcolour = 'green'
                     }
-                    # report out - 
+                    # report out -
                     #  {0} = colour (matches[5])
                     #  {1} = folder name
                     #  {2} = folder modified x minutes ago
@@ -2085,7 +2095,7 @@ function XymonDirTime
                         'height="16" width="16" border="0">' +`
                         '{1} updated {2:F1} minutes ago. Alert if {3} {4} minutes ago.<br>') `
                         -f $alertcolour, $_, $minutesdiff, $conditiontype, $criteriaminutes, $script:XymonSettings.servergiflocation)
-                    # set group colour to colour if it is not already set to a 
+                    # set group colour to colour if it is not already set to a
                     # higher alert state colour
                     if ($groupcolour -eq 'green' -and $alertcolour -eq 'yellow')
                     {
@@ -2150,7 +2160,7 @@ function XymonNetstat
 function XymonIfstat
 {
     WriteLog "XymonIfstat start"
-    $families = @{ 'IPv4' = [System.Net.Sockets.AddressFamily]::InterNetwork; 
+    $families = @{ 'IPv4' = [System.Net.Sockets.AddressFamily]::InterNetwork;
         'IPv6' = [System.Net.Sockets.AddressFamily]::InterNetworkV6;
     }
 
@@ -2173,7 +2183,7 @@ function XymonIfstat
     WriteLog "wanted address families: $wantedFamilies"
 
     "[ifstat]"
-    [System.Net.NetworkInformation.NetworkInterface]::GetAllNetworkInterfaces() | 
+    [System.Net.NetworkInformation.NetworkInterface]::GetAllNetworkInterfaces() |
         where { $_.OperationalStatus -eq "Up" -and $_.NetworkInterfaceType -ne 'loopback' } |
         foreach {
         $ad = $_.GetIPv4Statistics() | select BytesSent, BytesReceived
@@ -2191,13 +2201,13 @@ function XymonSvcs
     WriteLog "XymonSvcs start"
     "[svcs]"
     "Name".PadRight(39) + " " + "StartupType".PadRight(12) + " " + "Status".PadRight(14) + " " + "DisplayName"
-    foreach ($s in $svcs) 
+    foreach ($s in $svcs)
     {
         if ($script:clientlocalcfg_entries.ContainsKey('slimmode'))
         {
             if ($script:clientlocalcfg_entries.slimmode.ContainsKey('services'))
             {
-                # skip this service if we are in slimmode and this service is not one of the 
+                # skip this service if we are in slimmode and this service is not one of the
                 # requested services
                 if ($script:clientlocalcfg_entries.slimmode.services -notcontains $s.Name)
                 {
@@ -2219,7 +2229,7 @@ function XymonProcs
     "{0,8} {1,-35} {2,-17} {3,-17} {4,-17} {5,8} {6,-7} {7,5} {8,-19} {9,7} {10} {11}" -f `
         "PID", "User", "WorkingSet/Peak", "VirtualMem/Peak", "PagedMem/Peak", "NPS", `
         "Handles", "%CPU", 'Start Time', 'Elapsed', "Name", "Command"
-    
+
     # output sorted process table
     $script:procs | Sort-Object -Descending { $_.CPUPercent } `
         | foreach {
@@ -2234,7 +2244,7 @@ function XymonProcs
             {
                 if ($script:clientlocalcfg_entries.slimmode.ContainsKey('processes'))
                 {
-                    # skip this process if we are in slimmode and this process is not one of the 
+                    # skip this process if we are in slimmode and this process is not one of the
                     # requested processes
                     if ($script:clientlocalcfg_entries.slimmode.processes -notcontains $_.XymonProcessName)
                     {
@@ -2242,7 +2252,7 @@ function XymonProcs
                     }
                 }
             }
-            
+
             if (!$skipFlag)
             {
                 "{0,8} {1,-35} {2} {3} {4} {5} {6,7:F0} {7,5:F1} {8,19} {9,7:F0} {10} {11}" -f $_.Id, $_.Owner, `
@@ -2269,7 +2279,7 @@ function CleanXymonProcsCpu
                     # reset flag to catch a dead process on the next run
                     # this flag will be updated back to $true by XymonProcsCPUUtilisation
                     # if the process still exists
-                    $thisp[3] = $false  
+                    $thisp[3] = $false
                 }
                 else {
                     # flag was set to $false previously = process has been terminated
@@ -2286,7 +2296,7 @@ function CleanXymonProcsCpu
 function XymonWho
 {
     WriteLog "XymonWho start"
-    if( $HaveCmd.qwinsta) 
+    if( $HaveCmd.qwinsta)
     {
         "[who]"
         if ($script:usersessions -eq $null)
@@ -2371,7 +2381,7 @@ function XymonWMIProduct
             $fmt = "{0,-70} {1,-15} {2}"
             $fmt -f "Name", "Version", "Vendor"
             $fmt -f "----", "-------", "------"
-            receive-job $job | Sort-Object Name | 
+            receive-job $job | Sort-Object Name |
             foreach {
                 $fmt -f $_.Name, $_.Version, $_.Vendor
             }
@@ -2425,7 +2435,7 @@ function XymonDiskPart
         $dpOutput = $dpOutput -replace '^\s+', ''
         $dpOutput = $dpOutput -replace '\s+$', ''
         "[diskpart]"
-        
+
         $diskDetailCmd = "select disk {0}`r`ndetail disk"
         $noVolumeRX = '^There are no volumes.'
 
@@ -2435,7 +2445,7 @@ function XymonDiskPart
             $cmd = $diskDetailCmd -f $diskNum
             $detailOutput = $cmd | diskpart
             $detailDisk = $detailOutput | where { $_ -match '^Clustered' -or $_ -match $noVolumeRX }
-        
+
             if ($detailDisk -match '^Clustered Disk  : No')
             {
                 $clusterOutput = 'Not Clustered'
@@ -2470,115 +2480,117 @@ function XymonDiskPart
 function XymonServiceCheck
 {
     WriteLog "Executing XymonServiceCheck"
-    if ($script:clientlocalcfg_entries -ne $null)
+    $servicecfgs = @($script:clientlocalcfg_entries.keys | where { $_ -match '^servicecheck' })
+    foreach ($service in $servicecfgs)
     {
-        $servicecfgs = @($script:clientlocalcfg_entries.keys | where { $_ -match '^servicecheck' })
-        foreach ($service in $servicecfgs)
+        # parameter should be 'servicecheck:<servicename>:<duration>'
+        $checkparams = $service -split ':'
+        # validation
+        if ($checkparams.length -ne 3)
         {
-            # parameter should be 'servicecheck:<servicename>:<duration>'
-            $checkparams = $service -split ':'
-            # validation
-            if ($checkparams.length -ne 3)
+            WriteLog "ERROR: not enough parameters (should be servicecheck:<servicename>:<duration>) - $checkparams[1]"
+            continue
+        }
+        else
+        {
+            $duration = $checkparams[2] -as [int]
+            if ($checkparams[1] -eq '' -or $duration -eq $null)
             {
-                WriteLog "ERROR: not enough parameters (should be servicecheck:<servicename>:<duration>) - $checkparams[1]"
+                WriteLog "ERROR: config error (should be servicecheck:<servicename>:<duration>) - $checkparams[1]"
                 continue
             }
-            else
+        }
+        # check for maintenance window
+        $days = ('Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday')
+        $serviceexclds = @($script:clientlocalcfg_entries.keys | where { $_ -match '^noservicecheck' })
+
+        if ($serviceexclds -ne '')
+        {
+            foreach ($maintservice in $serviceexclds)
             {
-                $duration = $checkparams[2] -as [int]
-                if ($checkparams[1] -eq '' -or $duration -eq $null)
+                # parameter should be 'noservicecheck:<servicename>:<numeric day of week Sun=0>:<military start hour>:<duration in Hours>'
+                $checkMparams = $maintservice -split ':'
+                if ($checkparams[1] -eq $checkMparams[1])
                 {
-                    WriteLog "ERROR: config error (should be servicecheck:<servicename>:<duration>) - $checkparams[1]"
-                    continue
-                }
-            }
-            # check for maintenance window
-            $days = ('Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday')
-            $serviceexclds = @($script:clientlocalcfg_entries.keys | where { $_ -match '^noservicecheck' })
-            
-            if ($serviceexclds -ne '')
-            {
-                foreach ($maintservice in $serviceexclds)
-                {
-                    # parameter should be 'noservicecheck:<servicename>:<numeric day of week Sun=0>:<military start hour>:<duration in Hours>'
-                    $checkMparams = $maintservice -split ':'
-                    if ($checkparams[1] -eq $checkMparams[1])
+                    # validation of number of parameters
+                    if ($checkMparams.length -ne 5)
                     {
-                        # validation of number of parameters
-                        if ($checkMparams.length -ne 5)
+                        WriteLog ("ERROR: not enough parameters (noservicecheck:<servicename>:<numeric day of week Sun=0>:<start hour (24h)>:<duration Hrs> {0}" -f $checkMparams[1])
+                        continue
+                    }
+                    else
+                    {
+                        # get values
+                        $MaintDay = $checkMparams[2] -as [int]
+                        $MaintStartHour = $checkMparams[3] -as [int]
+                        $MaintDuration = $checkMparams[4] -as [int]
+                        # validation of basic values
+                        if ($checkMparams[1] -eq '' -or $MaintDuration -eq $null -or (0..6 -notcontains $MaintDay) -or (0..23 -notcontains $MaintStartHour))
                         {
-                            WriteLog ("ERROR: not enough parameters (noservicecheck:<servicename>:<numeric day of week Sun=0>:<start hour (24h)>:<duration Hrs> {0}" -f $checkMparams[1])
+                            WriteLog ("ERROR: config error (noservicecheck:<servicename>:<numeric day of week Sun=0>:<start hour (24h)>:<duration Hrs>) {0}" -f $checkMparams[1])
                             continue
                         }
-                        else
+                        $MaintWeekDay = $days[$MaintDay]
+                    }
+
+                    if (((get-date).DayofWeek -eq $MaintWeekDay) -and ((get-date).Hour -eq $MaintStartHour) )
+                    {
+                        if ($script:MaintChecks.ContainsKey($checkMparams[1]))
                         {
-                            # get values
-                            $MaintDay = $checkMparams[2] -as [int]
-                            $MaintStartHour = $checkMparams[3] -as [int]
-                            $MaintDuration = $checkMparams[4] -as [int]
-                            # validation of basic values
-                            if ($checkMparams[1] -eq '' -or $MaintDuration -eq $null -or (0..6 -notcontains $MaintDay) -or (0..23 -notcontains $MaintStartHour))
+                            $MaintWindowEnd = $script:MaintChecks[$checkMparams[1]].AddHours($MaintDuration)
+                            if ((get-date) -lt $MaintWindowEnd)
                             {
-                                WriteLog ("ERROR: config error (noservicecheck:<servicename>:<numeric day of week Sun=0>:<start hour (24h)>:<duration Hrs>) {0}" -f $checkMparams[1])
+                                WriteLog (" Maintenance: Skipping Service Check until after $($MaintWindowEnd) for {0}" -f $checkMparams[1])
                                 continue
-                            }
-                            $MaintWeekDay = $days[$MaintDay]
-                        }
-                        
-                        if (((get-date).DayofWeek -eq $MaintWeekDay) -and ((get-date).Hour -eq $MaintStartHour) ) 
-                        { 
-                            if ($script:MaintChecks.ContainsKey($checkMparams[1])) 
-                            {
-                                $MaintWindowEnd = $script:MaintChecks[$checkMparams[1]].AddHours($MaintDuration)
-                                if ((get-date) -lt $MaintWindowEnd)
-                                {
-                                    WriteLog (" Maintenance: Skipping Service Check until after $($MaintWindowEnd) for {0}" -f $checkMparams[1])
-                                    continue
-                                }
-                                else
-                                {
-                                    clear.variable $script:MaintChecks
-                                }
                             }
                             else
                             {
-                                 WriteLog ("Not seen this NoServiceCheck before, starting Maintenance Window now for {0}" -f $checkMparams[1])
-                                 $hourTop = (get-date).Minute
-                                 $script:MaintChecks[$checkMparams[1]] = (get-date).AddMinutes(-($hourTop))
-                                 continue
+                                clear.variable $script:MaintChecks
                             }
                         }
-                        # end of maintenance hold   
+                        else
+                        {
+                             WriteLog ("Not seen this NoServiceCheck before, starting Maintenance Window now for {0}" -f $checkMparams[1])
+                             $hourTop = (get-date).Minute
+                             $script:MaintChecks[$checkMparams[1]] = (get-date).AddMinutes(-($hourTop))
+                             continue
+                        }
                     }
+                    # end of maintenance hold
                 }
             }
-            WriteLog ("Checking service {0}" -f $checkparams[1])
+        }
+        WriteLog ("Checking service {0}" -f $checkparams[1])
 
-            $winsrv = Get-Service -Name $checkparams[1]
-            if ($winsrv.Status -eq 'Stopped')
+        $winsrv = Get-Service -Name $checkparams[1] -ErrorAction SilentlyContinue
+        if ($winsrv -eq $null)
+        {
+            WriteLog ("ERROR: Service {0} not found" -f $checkparams[1])
+            continue
+        }
+        if ($winsrv.Status -eq 'Stopped')
+        {
+            writeLog ("!! Service {0} is stopped" -f $checkparams[1])
+            if ($script:ServiceChecks.ContainsKey($checkparams[1]))
             {
-                writeLog ("!! Service {0} is stopped" -f $checkparams[1])
-                if ($script:ServiceChecks.ContainsKey($checkparams[1]))
+                $restarttime = $script:ServiceChecks[$checkparams[1]].AddSeconds($duration)
+                writeLog "Seen this service before; restart time is $restarttime"
+                if ($restarttime -lt (get-date))
                 {
-                    $restarttime = $script:ServiceChecks[$checkparams[1]].AddSeconds($duration)
-                    writeLog "Seen this service before; restart time is $restarttime"
-                    if ($restarttime -lt (get-date))
-                    {
-                        writeLog (" -> Starting service {0}" -f $checkparams[1])
-                        $winsrv.Start()
-                    }
-                }
-                else
-                {
-                    writeLog "Not seen this service before, setting restart time -1 hour"
-                    $script:ServiceChecks[$checkparams[1]] = (get-date).AddHours(-1)
+                    writeLog (" -> Starting service {0}" -f $checkparams[1])
+                    $winsrv.Start()
                 }
             }
-            elseif ('StartPending', 'Running' -contains $winsrv.Status)
+            else
             {
-                writeLog "  -Service is running, updating last seen time"
-                $script:ServiceChecks[$checkparams[1]] = get-date
+                writeLog "Not seen this service before, setting restart time -1 hour"
+                $script:ServiceChecks[$checkparams[1]] = (get-date).AddHours(-1)
             }
+        }
+        elseif ('StartPending', 'Running' -contains $winsrv.Status)
+        {
+            writeLog "  -Service is running, updating last seen time"
+            $script:ServiceChecks[$checkparams[1]] = get-date
         }
     }
 }
@@ -2601,7 +2613,7 @@ function XymonTerminalServicesSessionsCheck
             catch
             {
                 WriteLog "Failed to get max sessions from CurrentControlSet registry: $_"
-                $maxSessions = 0xffffffffL 
+                $maxSessions = 0xffffffffL
             }
 
             $maxSessionMsg = ''
@@ -2631,7 +2643,7 @@ function XymonTerminalServicesSessionsCheck
             $yellowThreshold = $matches[1]
             $redThreshold = $matches[2]
 
-            $activeSessions = $script:usersessions | where { $_ -match 'Active' } | measure | 
+            $activeSessions = $script:usersessions | where { $_ -match 'Active' } | measure |
                 select -ExpandProperty Count
 
             $freeSessions = $maxSessions - $activeSessions
@@ -2655,7 +2667,7 @@ function XymonTerminalServicesSessionsCheck
                             'sessions: active: {2} maximum: {3} free: {4}. {7}<br>yellow alert = {5} free, red = {6} free.<br>') `
                             -f $script:XymonSettings.servergiflocation, $alertColour, `
                             $activeSessions, $maxSessions, $freeSessions, $yellowThreshold, $redThreshold, $maxSessionMsg)
-            
+
             $outputtext = (get-date -format G) + '<br><h2>Terminal Services Sessions</h2>' + $outputtext
             $output = ('status {0}.tssessions {1} {2}' -f $script:clientname, $alertColour, $outputtext)
             WriteLog "Terminal Services Sessions: sending $output"
@@ -2672,7 +2684,7 @@ function XymonActiveDirectoryReplicationCheck
         $results = @(ConvertFrom-Csv -InputObject $status)
 
         $alertColour = 'green'
-    
+
         $failcount = ($results | where { $_.'Last Failure Time' -gt $_.'Last Success Time' }).Length
         if ($failcount -gt 0)
         {
@@ -2682,7 +2694,7 @@ function XymonActiveDirectoryReplicationCheck
         {
             $failcount = 'none'
         }
-        
+
         $outputtext = (('<img src="{0}{1}.gif" alt="{1}" ' +`
                         'height="16" width="16" border="0">' +`
                         'Failing replication contexts: {2}<br>red alert = more than zero.<br>') `
@@ -2708,7 +2720,7 @@ function XymonActiveDirectoryReplicationCheck
 function XymonProcessRuntimeCheck
 {
     WriteLog 'Executing XymonProcessRuntimeCheck'
-    
+
     # config: processruntime:<process name>:<yellow elapsed threshold>:<red elapsed threshold>
     # thresholds in minutes
 
@@ -2795,13 +2807,13 @@ function XymonProcessExternalData
                     continue
                 }
                 # a valid filename is either just the test name: testname
-                # or testname^hostname, to allow sending results from a different 
+                # or testname^hostname, to allow sending results from a different
                 # named host
                 if ($f.Name -match '^([\w-]+)(?:\^([\S]+))?$')
                 {
                     $testName = $matches[1]
                     $hostName = $matches[2]
-                
+
                     if ($hostName -eq $null)
                     {
                         $hostName = $script:clientname
@@ -2811,16 +2823,23 @@ function XymonProcessExternalData
                     # if we cannot, the file may be being updated by a running job, so
                     # we will ignore it until the next poll
                     WriteLog "Attempting to process external file $($f.FullName)"
+                    $skipFile = $false
                     try
                     {
                         $statusFile = [System.IO.File]::Open($f.FullName, 'Open', 'Read', 'None')
                         $reader = New-Object System.IO.StreamReader($statusFile)
-                        $statusFileContent = $reader.ReadToEnd()
-                        $reader.Close()
-                        $statusFile.Close()
+                        try
+                        {
+                            $statusFileContent = $reader.ReadToEnd()
+                        }
+                        finally
+                        {
+                            $reader.Close()
+                            $statusFile.Close()
+                        }
                     }
                     catch
-                    {        
+                    {
                         # if this file is locked or other errors, skip and go to the next one
                         if ($_ -like '*The process cannot access the file*because it is being used by another process*')
                         {
@@ -2830,8 +2849,9 @@ function XymonProcessExternalData
                         {
                             WriteLog "External file $($f.Name) error accessing file, skipping: $_"
                         }
-                        continue
+                        $skipFile = $true
                     }
+                    if ($skipFile) { continue }
 
                     # match:
                     # colour ($matches[1])
@@ -2850,8 +2870,23 @@ function XymonProcessExternalData
                             $msg += "+$lifeSpan"
                         }
                         $msg += (' {0}.{1} {2} {3}' -f $hostName, $testName, $groupColour, $statusMessage)
-                        
-                        WriteLog "Sending Xymon message for file $($f.Name) - test $($testName), host $($hostName): $msg"
+
+                        WriteLog "Sending Xymon message for file $($f.Name) - test $($testName), host $($hostName)"
+                        XymonSend $msg $script:XymonSettings.serversList
+                    }
+                    elseif ($statusFileContent -match '^trends([\s\S]+)$')
+                    {
+                        $Message = $matches[1]
+
+                        $msg = ('{0} {1}.{2} {3}' -f 'data', $hostName, 'trends', $Message)
+
+                        WriteLog "Sending Xymon trends message"
+                        XymonSend $msg $script:XymonSettings.serversList
+                    }
+                    elseif ($statusFileContent -match '^usermsg ')
+                    {
+                        $msg = $statusFileContent
+                        WriteLog "Sending Xymon usermsg"
                         XymonSend $msg $script:XymonSettings.serversList
                     }
                     else
@@ -2903,16 +2938,23 @@ function XymonProcessLocalData
 
                 $statusFileContent = ''
 
+                $skipFile = $false
                 try
                 {
                     $statusFile = [System.IO.File]::Open($f.FullName, 'Open', 'Read', 'None')
                     $reader = New-Object System.IO.StreamReader($statusFile)
-                    $statusFileContent = $reader.ReadToEnd()
-                    $reader.Close()
-                    $statusFile.Close()
+                    try
+                    {
+                        $statusFileContent = $reader.ReadToEnd()
+                    }
+                    finally
+                    {
+                        $reader.Close()
+                        $statusFile.Close()
+                    }
                 }
                 catch
-                {        
+                {
                     # if this file is locked or other errors, skip and go to the next one
                     if ($_ -like '*The process cannot access the file*because it is being used by another process*')
                     {
@@ -2922,8 +2964,9 @@ function XymonProcessLocalData
                     {
                         WriteLog "Local file $($f.Name) error accessing file, skipping: $_"
                     }
-                    continue
+                    $skipFile = $true
                 }
+                if ($skipFile) { continue }
 
                 if ($statusFileContent -ne '')
                 {
@@ -2933,7 +2976,14 @@ function XymonProcessLocalData
                 }
 
                 WriteLog "Deleting file $($f.Name)"
-                Remove-Item $f.FullName -Force
+                try
+                {
+                    Remove-Item $f.FullName -Force
+                }
+                catch
+                {
+                    WriteLog "Error deleting file $($f.Name): $_"
+                }
             }
         }
         else
@@ -2951,14 +3001,14 @@ function XymonProcessLocalData
 }
 
 # from http://poshcode.org/1054
-function Remove-Diacritics([string]$String) 
+function Remove-Diacritics([string]$String)
 {
     $objD = $String.Normalize([Text.NormalizationForm]::FormD)
     $sb = New-Object Text.StringBuilder
-    for ($i = 0; $i -lt $objD.Length; $i++) 
+    for ($i = 0; $i -lt $objD.Length; $i++)
     {
         $c = [Globalization.CharUnicodeInfo]::GetUnicodeCategory($objD[$i])
-        if($c -ne [Globalization.UnicodeCategory]::NonSpacingMark) 
+        if($c -ne [Globalization.UnicodeCategory]::NonSpacingMark)
         {
             [void]$sb.Append($objD[$i])
         }
@@ -2982,88 +3032,126 @@ function DecryptHttpServerPassword
         catch
         {
             WriteLog "Failed to decrypt serverHttpPassword: $_"
-            $serverPassword = ''
+            $serverPassword = $null
         }
     }
     return $serverPassword
 }
 
-function XymonSendViaHttp($msg)
+function XymonSendViaHttp($msg, $filePath)
 {
     WriteLog 'Executing XymonSendViaHttp'
 
-    $url = $script:XymonSettings.serverUrl
-    if ($url -notmatch '^https?://')
-    {
-        WriteLog "  ERROR: invalid server Url, check config: $url"
-        return ''
-    }
-
-    WriteLog "  Using url $url"
-    $encodedAuth = ''
-    if ($script:XymonSettings.serverHttpUsername -ne '')
-    {
-        $serverHttpPassword = DecryptHttpServerPassword
-        $authString = ('{0}:{1}' -f $script:XymonSettings.serverHttpUsername, `
-            $serverHttpPassword)
-        
-        $encodedAuth = [System.Convert]::ToBase64String(`
-            [System.Text.Encoding]::GetEncoding('ISO-8859-1').GetBytes($authString))
-
-
-        WriteLog "  Using username $($script:XymonSettings.serverHttpUsername)"
-    }
-
-    if ($url -match '^https://')
-    {
-        try
+    $urls = $script:XymonSettings.serverUrl -split ' '
+    foreach ($url in $urls) {
+        if ($url -notmatch '^https?://')
         {
-            [Net.ServicePointManager]::SecurityProtocol = "tls12, tls11, tls"
-        }
-        catch
-        {
-            WriteLog "Error setting TLS options (old version of .NET?): $_"
+            WriteLog "  ERROR: invalid server Url, check config: $url"
+            WriteLog 'XymonSendViaHttp finished'
             return $false
         }
-    }
 
-    # no Invoke-RestMethod before Powershell 3.0
-    $request = [System.Net.HttpWebRequest]::Create($url)
-    $request.Method = 'POST'
-    $request.Timeout = $script:XymonSettings.serverHttpTimeoutMs
-    if ($encodedAuth -ne '')
-    {
-        $request.Headers.Add('Authorization', "Basic $encodedAuth")
-    }
+        WriteLog "  Using url $url"
+        $encodedAuth = ''
+        if ($script:XymonSettings.serverHttpUsername -ne '')
+        {
+            $serverHttpPassword = DecryptHttpServerPassword
+            if ( $serverHttpPassword -eq $null )
+            {
+                WriteLog 'XymonSendViaHttp finished'
+                return $false
+            }
+            else
+            {
+                $authString = ('{0}:{1}' -f $script:XymonSettings.serverHttpUsername, `
+                    $serverHttpPassword)
 
-    $body = [byte[]][char[]]$msg
-    $bodyStream = $request.GetRequestStream()
-    $bodyStream.Write($body, 0, $body.Length)
+                $encodedAuth = [System.Convert]::ToBase64String(`
+                    [System.Text.Encoding]::GetEncoding('ISO-8859-1').GetBytes($authString))
 
-    WriteLog "  Connecting to $($url), body length $($body.Length), timeout $($script:XymonSettings.serverHttpTimeoutMs)ms"
-    try
-    {
-        $response = $request.GetResponse()
-    }
-    catch
-    {
-        WriteLog "  Exception connecting to $($url):`n$($_)"
-        return ''
-    }
-        
-    $statusCode = [int]($response.StatusCode)
-    if ($response.StatusCode -ne [System.Net.HttpStatusCode]::OK)
-    {
-        WriteLog "  FAILED, HTTP response code: $($response.StatusCode) ($statusCode)"
-        return ''
-    }
+                WriteLog "  Using username $($script:XymonSettings.serverHttpUsername)"
+            }
+        }
 
-    $responseStream = $response.GetResponseStream()
-    $readStream = New-Object System.IO.StreamReader $responseStream
-    $output = $readStream.ReadToEnd()
-    WriteLog "  Received $($output.Length) bytes from server"
-    $script:LastTransmissionMethod = 'HTTP'
+        if ($url -match '^https://')
+        {
+            $savedCertCallback = [Net.ServicePointManager]::ServerCertificateValidationCallback
+            [Net.ServicePointManager]::ServerCertificateValidationCallback = {$true}
+            try
+            {
+                [Net.ServicePointManager]::SecurityProtocol = "tls12, tls11, tls"
+            }
+            catch
+            {
+                WriteLog "Error setting TLS options (old version of .NET?): $_"
+                [Net.ServicePointManager]::ServerCertificateValidationCallback = $savedCertCallback
+                WriteLog 'XymonSendViaHttp finished'
+                return $false
+            }
+        }
 
+        # AXI: verwijderen van ^M, dit stuurt de procs check volledig in de war
+        $msg = $msg.Replace("`r","")
+
+        # no Invoke-RestMethod before Powershell 3.0
+        $request = [System.Net.HttpWebRequest]::Create($url)
+        $request.Method = 'POST'
+        $request.Timeout = $script:XymonSettings.serverHttpTimeoutMs
+        if ($encodedAuth -ne '')
+        {
+            $request.Headers.Add('Authorization', "Basic $encodedAuth")
+        }
+
+        # $body = [byte[]][char[]]$msg
+        $body = [text.encoding]::ascii.getbytes($msg)
+
+        try
+        {
+            try {
+               $bodyStream = $request.GetRequestStream()
+            }
+            catch {
+               WriteLog "Exception connecting during GetRequestStream to $($url):`n$($_)"
+               WriteLog 'XymonSendViaHttp finished'
+               return $false
+            }
+
+            $bodyStream.Write($body, 0, $body.Length)
+
+            WriteLog "  Connecting to $($url), body length $($body.Length), timeout $($script:XymonSettings.serverHttpTimeoutMs)ms"
+            try
+            {
+                $response = $request.GetResponse()
+            }
+            catch
+            {
+                WriteLog "  Exception connecting to $($url):`n$($_)"
+                WriteLog 'XymonSendViaHttp finished'
+                return $false
+            }
+
+            $statusCode = [int]($response.StatusCode)
+            if ($response.StatusCode -ne [System.Net.HttpStatusCode]::OK)
+            {
+                WriteLog "  FAILED, HTTP response code: $($response.StatusCode) ($statusCode)"
+                WriteLog 'XymonSendViaHttp finished'
+                return $false
+            }
+
+            $responseStream = $response.GetResponseStream()
+            $readStream = New-Object System.IO.StreamReader $responseStream
+            $output = $readStream.ReadToEnd()
+            WriteLog "  Received $($output.Length) bytes from server"
+            $script:LastTransmissionMethod = 'HTTP'
+        }
+        finally
+        {
+            if ($savedCertCallback -ne $null)
+            {
+                [Net.ServicePointManager]::ServerCertificateValidationCallback = $savedCertCallback
+            }
+        }
+    }
     WriteLog 'XymonSendViaHttp finished'
     return $output
 }
@@ -3071,15 +3159,43 @@ function XymonSendViaHttp($msg)
 function XymonSend($msg, $servers, $filePath)
 {
     $saveresponse = 1   # Only on the first server
-    $outputbuffer = ""
+    $outputBuffer = ""
 
     if ($script:XymonSettings.serverUrl -ne '')
     {
-        $outputBuffer = XymonSendViaHttp $msg
+        $outputBuffer = XymonSendViaHttp $msg $filePath
+
+        if ( $outputBuffer -ne $false)
+        {
+            $line = ($msg -split [environment]::newline)[0]
+            $line = $line -replace '[\t|\s]+', ' '
+            if  ($line -match '(download) (.*$)' )
+            {
+                if ($filePath -eq $null -or $filePath -eq "")
+                {
+                    # save it locally with the same name
+                    $filePath = split-path -leaf $matches[2]
+                }
+
+                # Save in unix format so the hash is the same as on the (Linux) xymon server
+                $fileBytes = [System.Text.Encoding]::UTF8.GetBytes($outputBuffer)
+                if ($PSVersionTable.PSVersion.Major -ge 6)
+                {
+                    Set-Content $filePath $fileBytes -AsByteStream
+                }
+                else
+                {
+                    Set-Content $filePath $fileBytes -Encoding Byte
+                }
+            }
+        } else {
+            # Make sure we return a string, not a boolean
+            $outputBuffer = ""
+        }
     }
     else
     {
-        switch ($script:XymonSettings.XymonAcceptUTF8) 
+        switch ($script:XymonSettings.XymonAcceptUTF8)
         {
             1 {
                 WriteLog 'Using UTF8 encoding'
@@ -3093,12 +3209,12 @@ function XymonSend($msg, $servers, $filePath)
                 # convert non-break spaces to normal spaces
                 $msg = $msg.Replace([char]0x00a0,' ')
             }
-            default { 
-                WriteLog 'Using "original" ASCII encoding' 
+            default {
+                WriteLog 'Using "original" ASCII encoding'
                 $MessageEncoder = New-Object System.Text.ASCIIEncoding
             }
         }
-        foreach ($srv in $servers) 
+        foreach ($srv in $servers)
         {
             $srvparams = $srv.Split(":")
             # allow for server names that may resolve to multiple A records
@@ -3106,43 +3222,50 @@ function XymonSend($msg, $servers, $filePath)
                 $local:ErrorActionPreference = "SilentlyContinue"
                 $srvparams[0] | %{[system.net.dns]::GetHostAddresses($_)} | %{ $_.IPAddressToString}
             }
-            if ($srvIPs -eq $null) 
+            if ($srvIPs -eq $null)
             { # no IP addresses could be looked up
                 Write-Error -Category InvalidData ("No IP addresses could be found for host: " + $srvparams[0])
-            } 
-            else 
+            }
+            else
             {
-                if ($srvparams.Count -gt 1) 
+                if ($srvparams.Count -gt 1)
                 {
                     $srvport = $srvparams[1]
-                } 
-                else 
+                }
+                else
                 {
                     $srvport = 1984
                 }
-                foreach ($srvip in $srvIPs) 
+                foreach ($srvip in $srvIPs)
                 {
                     WriteLog "Connecting to host $srvip"
 
                     $saveerractpref = $ErrorActionPreference
                     $ErrorActionPreference = "SilentlyContinue"
-                    $socket = new-object System.Net.Sockets.TcpClient
-                    $socket.Connect($srvip, $srvport)
-                    $ErrorActionPreference = $saveerractpref
-                    if(! $? -or ! $socket.Connected ) 
-                    {
-                        $errmsg = $Error[0].Exception
-                        WriteLog "ERROR: Cannot connect to host $srv ($srvip) : $errmsg"
-                        Write-Error -Category OpenError "Cannot connect to host $srv ($srvip) : $errmsg"
-                        continue;
+
+                    $socket = New-Object System.Net.Sockets.TcpClient
+                    try {
+                       $socket.Connect($srvip, $srvport)
+                       if (-not $socket.Connected) {
+                          throw "Not connected"
+                       }
                     }
-                    $socket.sendTimeout = 500
+                    catch {
+                       $errmsg = $_.Exception.Message
+                       WriteLog "ERROR: Cannot connect to host $srv ($srvip) : $errmsg"
+                       Write-Error -Category OpenError "Cannot connect to host $srv ($srvip) : $errmsg"
+                       $socket.Dispose()
+                       $ErrorActionPreference = $saveerractpref
+                       continue
+                    }
+                    $ErrorActionPreference = $saveerractpref
+                    $socket.SendTimeout = 500
                     $socket.NoDelay = $true
 
                     $stream = $socket.GetStream()
-                    
+
                     $sent = 0
-                    foreach ($line in $msg) 
+                    foreach ($line in $msg)
                     {
                         # Convert data as appropriate
                         try
@@ -3156,16 +3279,16 @@ function XymonSend($msg, $servers, $filePath)
                     }
                     WriteLog "Sent $sent bytes to server"
 
-                    if ($saveresponse-- -gt 0) 
+                    if ($saveresponse-- -gt 0)
                     {
                         $socket.Client.Shutdown(1)  # Signal to Xymon we're done writing.
 
                         $bytes = 0
                         $line = ($msg -split [environment]::newline)[0]
                         $line = $line -replace '[\t|\s]+', ' '
-                        if  ($line -match '(download) (.*$)' ) 
+                        if  ($line -match '(download) (.*$)' )
                         {
-                            if ($filePath -eq $null -or $filePath -eq "") 
+                            if ($filePath -eq $null -or $filePath -eq "")
                             {
                                 # save it locally with the same name
                                 $filePath = split-path -leaf $matches[2]
@@ -3176,10 +3299,10 @@ function XymonSend($msg, $servers, $filePath)
                             do
                             {
                                 $read = $null;
-                                while($stream.DataAvailable -or $read -eq $null) 
+                                while($stream.DataAvailable -or $read -eq $null)
                                 {
                                     $read = $stream.Read($buffer, 0, 2048);
-                                    if ($read -gt 0) 
+                                    if ($read -gt 0)
                                     {
                                         $fileStream.Write($buffer, 0, $read);
                                         $bytes += $read
@@ -3188,8 +3311,8 @@ function XymonSend($msg, $servers, $filePath)
                             } while ($read -gt 0);
                             $fileStream.Close();
                             WriteLog "Wrote $bytes bytes from server to $filePath"
-                        } 
-                        else 
+                        }
+                        else
                         {
                             $s = new-object system.io.StreamReader($stream,"ASCII")
 
@@ -3208,40 +3331,40 @@ function XymonSend($msg, $servers, $filePath)
                     $socket.Close()
                     $script:LastTransmissionMethod = 'TCP'
                 } # foreach ($srvip in $srvIPs)
-            } # else of if ($srvIPs -eq $null) 
+            } # else of if ($srvIPs -eq $null)
         } # foreach $srv in $servers
     }
-    $outputbuffer
+    $outputBuffer
 }
 
 function XymonClientConfig($cfglines)
 {
-    if ($cfglines -eq $null -or $cfglines -eq "") { return }
+    if ($cfglines -eq $null -or $cfglines -eq "" -or $cfglines -is [bool]) { return }
 
     # Convert to Windows-style linebreaks
     $script:clientlocalcfg = $cfglines.Split("`n")
 
-    # overwrite local cached config with this version if 
+    # overwrite local cached config with this version if
     # remote config is enabled
     $configmode = ''
     if ($script:XymonSettings.clientremotecfgexec -ne 0)
     {
-        WriteLog "Using new remote config, saving locally"
+        WriteLog "Using remote config, saving locally"
         $clientlocalcfg >$script:XymonSettings.clientconfigfile
         $configmode = 'remote'
     }
     else
     {
-        WriteLog "Using local config only (if one exists), clientremotecfgexec = 0"
+        WriteLog "Using local config only (if one exists), clientremotecfgexec = 0 or not set"
         $configmode = 'localonly'
     }
 
+    $script:clientlocalcfg_entries['_configmode_'] = $configmode
+
     # Parse the config - always uses the local file (which may contain
     # config from remote)
-    if (test-path -PathType Leaf $script:XymonSettings.clientconfigfile) 
+    if (test-path -PathType Leaf $script:XymonSettings.clientconfigfile)
     {
-        # make sure the config always contains something
-        $script:clientlocalcfg_entries = @{ '_configmode_' = $configmode }
         $lines = get-content $script:XymonSettings.clientconfigfile
         $currentsection = ''
         $eventlogswantedSeen = 0
@@ -3266,9 +3389,11 @@ function XymonClientConfig($cfglines)
                 -or $l -match '^noservicecheck:' `
                 -or $l -match '^enablediskpart' `
                 -or $l -match '^maxloop' `
+                -or $l -match '^slowscanrate' `
+                -or $l -match '^config' `
                 )
             {
-                WriteLog "Found a command: $l"
+                WriteLog "Found an option: $l"
                 $currentsection = $l
                 # merging for eventlog include/ignore
                 if (-not ($script:clientlocalcfg_entries.ContainsKey($currentsection)))
@@ -3303,21 +3428,23 @@ function XymonClientConfig($cfglines)
         # parse maxloop if it's there (add if not)
         $maxloop = @($script:clientlocalcfg_entries.keys | `
             where { $_ -match '^maxloop:([0-9]+)$' })
-        if ($maxloop.length -gt 1)
-        {
-            WriteLog 'ERROR: more than one maxloop directive in config!'
-        }
-        elseif ($maxloop.Length -eq 1)
+        if ($maxloop.length -ge 1)
         {
             $script:maxloop = [int]$matches[1]
         }
-        else
+
+        # parse slowscanrate if it's there (add if not)
+        $slowscanrate = @($script:clientlocalcfg_entries.keys | `
+            where { $_ -match '^slowscanrate:([0-9]+)$' })
+        if ($slowscanrate.length -ge 1)
         {
-            $script:maxloop = 0
+            $script:slowscanrate = [int]$matches[1]
         }
     }
     WriteLog "Cached config now contains: "
-    WriteLog ($script:clientlocalcfg_entries.keys -join ', ')
+    foreach ( $i in $script:clientlocalcfg_entries.keys ) {
+        WriteLog ("  "+$i)
+    }
 
     # special handling for servergifs
     $gifpath = @($script:clientlocalcfg_entries.keys | where { $_ -match '^servergifs:(.+)$' })
@@ -3346,18 +3473,20 @@ function XymonReportConfig
     "[XymonPSClientInfo]"
     "Collection number: $($script:collectionnumber)"
     "Last transmission method: $($script:LastTransmissionMethod)"
-    $script:thisXymonProcess    
+    $script:thisXymonProcess
 
     #get-process -id $PID
     #"[XymonPSClientThreadStats]"
     #(get-process -id $PID).Threads
 }
 
-function XymonClientSections([boolean] $isSlowScan)
+function XymonClientSections([boolean] $isSlowScan, [int]$loopcount)
 {
+    XymonManageConfigs
+
     # maybe move XymonManageExternals to slow scan tasks
     XymonManageExternals
-    XymonExecuteExternals $isSlowScan
+    XymonExecuteExternals $isSlowScan $loopcount
 
     XymonClientVersion
     XymonUname
@@ -3422,7 +3551,7 @@ function XymonClientInstall([string]$scriptname)
 {
     # client install re-written to use NSSM
     # also to remove any existing service first
-    
+
     XymonClientUnInstall
 
     & "$xymondir\nssm.exe" install `"$xymonsvcname`" `"$PSHOME\powershell.exe`" -ExecutionPolicy RemoteSigned -NoLogo -NonInteractive -NoProfile -WindowStyle Hidden -File `"`"`"$scriptname`"`"`"
@@ -3444,20 +3573,41 @@ function XymonClientUnInstall()
 function ExecuteSelfUpdate([string]$newversion)
 {
     $oldversion = $MyInvocation.ScriptName
+    $backupversion = "$oldversion.bak"
 
     WriteLog "Upgrading $oldversion to $newversion"
 
-    # copy newversion to correct name
-    # remove newversion file
-    # re-start service - by exiting, NSSM will notice the process has ended and will
-    # automatically restart it
+    $Process = powershell.exe -File $newversion ping 2>&1 | Out-String
 
-    copy-item "$newversion" "$oldversion" -force
-    remove-item "$newversion"
+    if ( $Process -like "*xymond *" ) {
+        WriteLog "New version is working"
 
-    WriteLog "Sending final log and restarting service..."
-    XymonLogSend
-    exit
+        WriteLog "Creating backup of current version: $backupversion"
+        Copy-Item "$oldversion" "$backupversion" -Force
+
+        try
+        {
+            Copy-Item "$newversion" "$oldversion" -Force
+        }
+        catch
+        {
+            WriteLog "ERROR: Failed to copy new version, restoring backup: $_"
+            Copy-Item "$backupversion" "$oldversion" -Force
+            Remove-Item "$backupversion" -ErrorAction SilentlyContinue
+            return
+        }
+
+        Remove-Item "$newversion"    -ErrorAction SilentlyContinue
+        Remove-Item "$backupversion" -ErrorAction SilentlyContinue
+
+        WriteLog "Sending final log and restarting service..."
+        XymonLogSend
+        exit
+
+    } else {
+        WriteLog "ERROR! New version is not working"
+        WriteLog $Process
+    }
 }
 
 # XymonDownloadFromFile used when a file path is used instead of a URL
@@ -3470,12 +3620,12 @@ function XymonDownloadFromFile([string]$downloadPath, [string]$destinationFilePa
         return $false
     }
 
-    WriteLog "Copying $downloadPath to $destinationPath"
+    WriteLog "Copying $downloadPath to $destinationFilePath"
     try
     {
         Copy-Item  $downloadPath $destinationFilePath -Force
     }
-    catch 
+    catch
     {
         WriteLog "Error copying file: $_"
         return $false
@@ -3493,6 +3643,7 @@ function XymonDownloadFromURL([string]$downloadURL, [string]$destinationFilePath
         # for self-signed certificates, turn off cert validation
         # TODO: make this a config option
         # TODO: at some point, deprecate tls1.1 & 1.0
+        $savedCertCallback = [Net.ServicePointManager]::ServerCertificateValidationCallback
         [Net.ServicePointManager]::ServerCertificateValidationCallback = {$true}
         if ($downloadURL -match '^https://')
         {
@@ -3506,7 +3657,18 @@ function XymonDownloadFromURL([string]$downloadURL, [string]$destinationFilePath
                 return $false
             }
         }
-        $client.DownloadFile($downloadURL, $destinationFilePath)
+
+        try {
+            $client.DownloadFile($downloadURL, $destinationFilePath)
+        }
+        catch
+        {
+            $e = $_.Exception
+            WriteLog "Error during DownloadFile: $($e.Message)"
+            [Net.ServicePointManager]::ServerCertificateValidationCallback = $savedCertCallback
+            return $false
+        }
+        [Net.ServicePointManager]::ServerCertificateValidationCallback = $savedCertCallback
     }
     catch
     {
@@ -3524,122 +3686,136 @@ function XymonDownloadFromServer([string]$ServerPath, [string]$destinationFilePa
     try
     {
         # should work transparently through any intermediate proxies
-        XymonSend $message $script:XymonSettings.serversList $destinationFilePath
+        $output = XymonSend $message $script:XymonSettings.serversList $destinationFilePath
+        return $output
     }
     catch
     {
         WriteLog "Error downloading: $_"
         return $false
     }
-    return $true
 }
 
 function GetHashValueForFile([string] $filename, [string] $hashAlgorithm)
 {
     $hash = [System.Security.Cryptography.HashAlgorithm]::Create($hashAlgorithm)
     $stream = ([System.IO.StreamReader]$filename).BaseStream
-    $fileHash = -join ($hash.ComputeHash($stream) | foreach { '{0:x2}' -f $_ } )
-    $stream.Close()
+    try
+    {
+        $fileHash = -join ($hash.ComputeHash($stream) | foreach { '{0:x2}' -f $_ } )
+    }
+    finally
+    {
+        $stream.Close()
+    }
     return $fileHash
 }
 
 function XymonCheckUpdate
 {
     WriteLog "Executing XymonCheckUpdate"
-    $updates = @($script:clientlocalcfg_entries.keys | `
-        where { $_ -match '^clientversion:(\d+\.\d+):(.+?)(?::(MD5|SHA1|SHA256):([0-9a-f]+))?$' })
-    if ($updates.length -gt 1)
-    {
-        WriteLog "ERROR: more than one clientversion directive in config!"
-    }
-    elseif ($updates.length -eq 1)
-    {
-        # $matches[1] = the new version number
-        # $matches[2] = the place to look for new version file
-        # $matches[3] = (optional) hash type
-        # $matches[4] = (optional) hash value
+    $updates = @($script:clientlocalcfg_entries.keys | where { $_ -match '^clientversion:' })
 
-        if ($Version -lt $matches[1])
+    if ($updates.length -gt 0)
+    {
+        if ($updates.length -eq 1)
         {
-            WriteLog "Running version $Version; config version $($matches[1]); attempting upgrade"
-
-            # $matches[2] can be either a http[s] URL, bb fake URL or a file path
-            $updatePath = $matches[2]
-            $updateFile = "xymonclient_$($matches[1]).ps1"
-            $hashAlgorithm = $matches[3]
-            $hashRequired = $matches[4]
-            $destination = Join-Path -Path $xymondir -ChildPath $updateFile
-
-            $result = $false
-            if ($updatePath -match '^http')
-            {
-                $updateURL = $updatePath.Trim()
-                if ($updateURL -notmatch '/$')
-                {
-                    $updateURL += '/'
-                }
-                $URL = "{0}{1}" -f $updateURL, $updateFile
-                $destination = Join-Path -Path $xymondir -ChildPath $updateFile
-                $result = XymonDownloadFromURL $URL $destination
-            }
-            elseif ($updatePath -match '^bb')
-            {
-                $ServerPath = $updatePath.Trim()
-                $ServerPath = $ServerPath -creplace '^[^:]*:/*',''
-                if ($ServerPath -notmatch '/$')
-                {
-                    $ServerPath += '/'
-                }
-                $URL = "{0}{1}" -f $ServerPath, $updateFile
-                $destination = Join-Path -Path $xymondir -ChildPath $updateFile
-                $result = XymonDownloadFromServer $URL $destination
-            }
-            else
-            {
-                # not http, not bb - maybe a file path?
-                $updateSource = Join-Path $updatePath $updateFile
-                $result = XymonDownloadFromFile $updateSource $destination
-            }
-
-            if ($result)
-            {
-                $newversion = Join-Path $xymondir $updateFile
-                if ($hashAlgorithm -ne $null)
-                {
-                    WriteLog "$($hashAlgorithm) hash specified, testing update file"
-                    $fileHash = ''
-                    try
-                    {
-                        $fileHash = GetHashValueForFile -filename $newversion -hashAlgorithm $hashAlgorithm
-                    }
-                    catch
-                    {
-                        WriteLog "Update directive specifies hash, but error calculating hash: $_"
-                        WriteLog "Update cancelled"
-                        Remove-Item $newversion
-                        return
-                    }
-
-                    if ($fileHash -ne $hashRequired)
-                    {
-                        WriteLog "Update: update file hash mismatch (calculated $fileHash should be $hashRequired)"
-                        WriteLog "Update cancelled"
-                        Remove-Item $newversion
-                        return
-                    }
-                    else
-                    {
-                        WriteLog "Update file hash matches expected value, update can proceed"
-                    }
-                }
-
-                WriteLog "Launching update"
-                ExecuteSelfUpdate $newversion
-            }
+            WriteLog "Found 1 $($updates.length) clientversion lines:"
         }
         else
         {
-            WriteLog "Update: Running version $Version; config version $($matches[1]); doing nothing"
+            WriteLog "Found $($updates.length) clientversion lines:"
+        }
+
+        $script:clientlocalcfg_entries.keys | where { $_ -match '^clientversion:(\d+\.\d+):(.+?)(?::(MD5|SHA1|SHA256):([0-9a-f]+))?$' } | foreach `
+        {
+            # $matches[1] = the new version number
+            # $matches[2] = the place to look for new version file
+            # $matches[3] = (optional) hash type
+            # $matches[4] = (optional) hash value
+
+            if ([version]$Version -lt [version]$matches[1])
+            {
+                WriteLog "Running version $Version; config version $($matches[1]); attempting upgrade from $($matches[2])"
+
+                # $matches[2] can be either a http[s] URL, bb/xymon fake URL or a file path
+                $updatePath = $matches[2]
+                $updateFile = "xymonclient_$($matches[1]).ps1"
+                $hashAlgorithm = $matches[3]
+                $hashRequired = $matches[4]
+                $destination = Join-Path -Path $xymondir -ChildPath $updateFile
+
+                $result = $false
+                if ($updatePath -match '^http')
+                {
+                    $updateURL = $updatePath.Trim()
+                    if ($updateURL -notmatch '/$')
+                    {
+                        $updateURL += '/'
+                    }
+                    $URL = "{0}{1}" -f $updateURL, $updateFile
+                    $destination = Join-Path -Path $xymondir -ChildPath $updateFile
+                    $result = XymonDownloadFromURL $URL $destination
+                }
+                elseif ($updatePath -match '^bb' -or $updatePath -match '^xymon')
+                {
+                    $ServerPath = $updatePath.Trim()
+                    $ServerPath = $ServerPath -creplace '^[^:]*:/*',''
+                    if ($ServerPath -notmatch '/$')
+                    {
+                        $ServerPath += '/'
+                    }
+                    $URL = "{0}{1}" -f $ServerPath, $updateFile
+                    $destination = Join-Path -Path $xymondir -ChildPath $updateFile
+                    $result = XymonDownloadFromServer $URL $destination
+                }
+                else
+                {
+                    # not http, not bb/xymon - maybe a file path?
+                    $updateSource = Join-Path $updatePath $updateFile
+                    $result = XymonDownloadFromFile $updateSource $destination
+                }
+
+                if ($result -ne $false)
+                {
+                    $newversion = Join-Path $xymondir $updateFile
+                    if ($hashAlgorithm -ne $null)
+                    {
+                        WriteLog "$($hashAlgorithm) hash specified, testing update file"
+                        $fileHash = ''
+                        try
+                        {
+                            $fileHash = GetHashValueForFile -filename $newversion -hashAlgorithm $hashAlgorithm
+                        }
+                        catch
+                        {
+                            WriteLog "Update directive specifies hash, but error calculating hash: $_"
+                            WriteLog "Update cancelled"
+                            Remove-Item $newversion
+                            return
+                        }
+
+                        if ($fileHash -ne $hashRequired)
+                        {
+                            WriteLog "Update: update file hash mismatch (calculated $fileHash should be $hashRequired)"
+                            WriteLog "Update cancelled"
+                            Remove-Item $newversion
+                            return
+                        }
+                        else
+                        {
+                            WriteLog "Update file hash matches expected value, update can proceed"
+                        }
+                    }
+
+                    WriteLog "Launching update"
+                    ExecuteSelfUpdate $newversion
+                }
+            }
+            else
+            {
+                WriteLog "Update: Running version $Version; config version $($matches[1]) from $($matches[2]); doing nothing"
+            }
         }
     }
     else
@@ -3665,18 +3841,18 @@ function DownloadAndVerify([string] $URI, [string] $name, [string] $path, `
     {
         $result = XymonDownloadFromURL $URI $destination
     }
-    elseif ($URI -match '^bb')
+    elseif ($URI -match '^bb' -or $URI -match '^xymon')
     {
         $URI = $URI -creplace '^[^:]*:/*',''
         $result = XymonDownloadFromServer $URI $destination
     }
     else
     {
-        # not http, not bb - maybe a file path?
+        # not http, not bb/xymon - maybe a file path?
         $result = XymonDownloadFromFile $URI $destination
     }
 
-    if ($result -and $hashAlgorithm -ne $null)
+    if ($result -ne $false -and $hashAlgorithm -ne $null)
     {
         WriteLog "$($hashAlgorithm) hash specified, testing destination file"
         $fileHash = ''
@@ -3687,10 +3863,10 @@ function DownloadAndVerify([string] $URI, [string] $name, [string] $path, `
         catch
         {
             WriteLog "Error calculating hash: $_"
-            $result = $false
+            $fileHash = $false
         }
 
-        if ($result)
+        if ($fileHash -ne $false)
         {
             if ($fileHash -ne $hashRequired)
             {
@@ -3702,24 +3878,121 @@ function DownloadAndVerify([string] $URI, [string] $name, [string] $path, `
                 WriteLog "Downloaded file hash matches expected value, can proceed"
             }
         }
-        if (!$result)
+        if ($result -eq $false)
         {
             WriteLog "Removing failed download $destination"
             Remove-Item $destination
         }
     }
-    if ($result)
+
+    if ($result -ne $false)
     {
-        $originalFile = Join-Path -Path $path -ChildPath $name
-        if (Test-Path $originalFile)
+        if (Test-Path $destination)
         {
-            WriteLog "Deleting original file $originalFile"
-            Remove-Item -Force $originalFile
+            $originalFile = Join-Path -Path $path -ChildPath $name
+            if (Test-Path $originalFile)
+            {
+                WriteLog "Deleting original file $originalFile"
+                Remove-Item -Force $originalFile
+            }
+            WriteLog "Renaming $destination to $originalFile"
+            Move-Item -Force $destination $originalFile
         }
-        WriteLog "Renaming $destination to $originalFile"
-        Move-Item -Force $destination $originalFile
+        else
+        {
+            WriteLog "Error: new file $destination not found"
+        }
     }
     return $result
+}
+
+
+function XymonManageConfigs
+{
+    WriteLog "Executing XymonManageConfigs"
+    $Configs = @($script:clientlocalcfg_entries.keys | `
+        where { $_ -match '^config:' })
+
+    foreach ($config in $Configs)
+    {
+
+        if ($config -match '^config:(.+?)(?:\|(MD5|SHA1|SHA256)\|([0-9a-f]+))?$')
+        {
+            # $matches[1] = URL location
+            # $matches[2] = optional hash type
+            # $matches[3] = optional hash value
+
+            ($ConfigURI, $ConfighashAlgorithm, $ConfighashRequired) = $matches[1..3]
+
+            $ConfigName = $ConfigURI.SubString($ConfigURI.LastIndexOf('/') + 1)
+
+            if ( $ConfigName -eq '$ClientName.ini' ) {
+               $ConfigName = $script:clientname + ".ini"
+               $ConfigBaseURI = $ConfigURI.SubString(0,$ConfigURI.LastIndexOf('/') + 1)
+               $ConfigURI = $ConfigBaseURI + $ConfigName
+               WriteLog "Changing config file name to $ConfigName"
+            }
+
+            $FullName = Join-Path $script:XymonSettings.configlocation $ConfigName
+
+            $downloadFlag = $false
+
+            WriteLog "Checking $FullName"
+
+            # check to see if we have the matching version
+            if (Test-Path $FullName)
+            {
+                if ($ConfighashAlgorithm -ne $null -and $ConfighashRequired -ne $null)
+                {
+                    WriteLog "Config file found, $ConfigName - testing against hash"
+                    try
+                    {
+                        $fileHash = GetHashValueForFile -filename $FullName -hashAlgorithm $ConfighashAlgorithm
+                    }
+                    catch
+                    {
+                        WriteLog "Error calculating hash for file: $_"
+                    }
+                    if ($fileHash -ne $ConfighashRequired)
+                    {
+                        WriteLog "Existing script hash mismatch (calculated $fileHash should be $ConfighashRequired)"
+                        # hash mismatch, need to update via download
+                        $downloadFlag = $true
+                    }
+                } else {
+                    WriteLog "Configuration file $ConfigName found, but no hash to check against so downloading again"
+                    $downloadFlag = $true
+                }
+            }
+            else
+            {
+                WriteLog "Configuration file $FullName not found"
+                $downloadFlag = $true
+            }
+
+            if ($downloadFlag)
+            {
+                WriteLog "Configuration file $ConfigName not found or requires update, downloading"
+
+                try
+                {
+                    $result = DownloadAndVerify -URI $ConfigURI -name $ConfigName `
+                        -path $script:XymonSettings.configlocation `
+                        -hashAlgorithm $ConfighashAlgorithm -hashRequired $ConfighashRequired
+                }
+                catch
+                {
+                    WriteLog "Error downloading $ConfigName, ignoring"
+                    WriteLog "Error was: $_"
+                }
+            }
+        }
+        else
+        {
+            WriteLog "Configuration directive does not match expected format: $config"
+        }
+    } # foreach ... configs
+    WriteLog 'XymonManageConfigs finished'
 }
 
 function XymonManageExternals
@@ -3731,10 +4004,10 @@ function XymonManageExternals
 
     foreach ($external in $externalConfig)
     {
-        if ($external -match '^external:(?:(\d+):)?(slowscan|everyscan):(sync|async):(.+?)(?:\|(MD5|SHA1|SHA256)\|([0-9a-f]+))?(?:\|(.+)\|(.+))?$')
+        if ($external -match '^external:(?:(\d+):)?(slowscan|everyscan|scan,\d+):(sync|async):(.+?)(?:\|(MD5|SHA1|SHA256)\|([0-9a-f]+))?(?:\|(.+)\|(.+))?$')
         {
             # $matches[1] = priority (optional) 0-99
-            # $matches[2] = slowscan/everyscan
+            # $matches[2] = slowscan/everyscan/scan,<number>
             # $matches[3] = sync/async
             # $matches[4] = URL / file location
             # $matches[5] = optional hash type
@@ -3745,7 +4018,7 @@ function XymonManageExternals
             ($priority, $executionFrequency, $executionMethod, $externalURI, `
              $hashAlgorithm, $hashRequired, $process, $arguments) = $matches[1..8]
 
-            if ($externalURI -match '^(http|bb)')
+            if ($externalURI -match '^(http|bb|xymon)')
             {
                 $externalScriptName = $externalURI.SubString($externalURI.LastIndexOf('/') + 1)
             }
@@ -3769,8 +4042,8 @@ function XymonManageExternals
             }
             $externalInfo = @{ Fullname = $externalFullName; `
                 ExecutionFrequency = $executionFrequency; `
-                ExecutionMethod = $executionMethod; 
-                ProcessName = $process; 
+                ExecutionMethod = $executionMethod;
+                ProcessName = $process;
                 Arguments = $arguments;
                 Priority = $priority }
             $externalObj = New-Object -Type PSObject -Property $externalInfo
@@ -3796,7 +4069,7 @@ function XymonManageExternals
                     if ($fileHash -ne $hashRequired)
                     {
                         WriteLog "Existing script hash mismatch (calculated $fileHash should be $hashRequired)"
-                        # hash mismatch, need to update via download 
+                        # hash mismatch, need to update via download
                         $downloadFlag = $true
                     }
                 }
@@ -3815,13 +4088,13 @@ function XymonManageExternals
 
             if ($downloadFlag)
             {
-                WriteLog "External script $externalScriptName not found or requires update, downloading"
+                WriteLog "External script $externalScriptName not found or requires update, downloading from $externalURI"
                 try
                 {
                     $result = DownloadAndVerify -URI $externalURI -name $externalScriptName `
                         -path $script:XymonSettings.externalscriptlocation `
                         -hashAlgorithm $hashAlgorithm -hashRequired $hashRequired
-                    
+
                     if ($result)
                     {
                         WriteLog "Success, adding/updating external $externalScriptName in execution plan"
@@ -3843,21 +4116,38 @@ function XymonManageExternals
     WriteLog 'XymonManageExternals finished'
 }
 
-function XymonExecuteExternals([boolean] $isSlowscan)
+function XymonExecuteExternals([boolean] $isSlowscan, [int] $loopcount)
 {
     WriteLog 'Executing XymonExecuteExternals'
+    $env:clientname = $script:clientname
+
     if (!(Test-Path $script:XymonSettings.externaldatalocation))
     {
         New-Item -ItemType directory -Path $script:XymonSettings.externaldatalocation
     }
     $script:externals | Sort-Object Priority, ExecutionMethod | foreach {
         WriteLog "External: $($_.ExecutionFrequency) - $($_.FullName)"
+
+        [bool] $execute = $true
+
         if (!$isSlowscan -and $_.ExecutionFrequency -eq 'slowscan')
         {
             WriteLog 'Skipping execution, this is not a slow scan'
+            $execute = $false
         }
-        else
-        {
+
+        if ($_.ExecutionFrequency -match '^scan,(\d+)' ) {
+            $rest = $loopcount % $Matches[1]
+            if ( $loopcount % $Matches[1] -eq 0 )
+            {
+               WriteLog "Execution custom scan: $loopcount % $($Matches[1]) = $rest"
+            } else {
+               WriteLog "Skipping execution custom scan: $loopcount % $($Matches[1]) = $rest"
+               $execute = $false
+            }
+        }
+
+        if ( $execute -eq $true) {
             try
             {
                 $process = $_.ProcessName
@@ -3879,7 +4169,7 @@ function XymonExecuteExternals([boolean] $isSlowscan)
                         $process
                 }
                 WriteLog "Process $($extpid.Id) started"
-            
+
                 if ($_.ExecutionMethod -eq 'sync')
                 {
                     WriteLog "Synchronous external: waiting for process $($extpid.Id) to complete"
@@ -3966,7 +4256,7 @@ function RepeatTests([string] $content)
         if ($line -match '^\[([^\]]+)\]$')
         {
             $currentSection = $matches[1]
-            # found a new section - if we were previously capturing lines from the 
+            # found a new section - if we were previously capturing lines from the
             # previous section, write out any repeat sections and reset
             if ($capturelines)
             {
@@ -3976,7 +4266,7 @@ function RepeatTests([string] $content)
                 $script:clientlocalcfg_entries.keys | where { $_ -match $regex } | foreach {
                     $newsection = $matches[1]
                     $outputHeader = @()
-                    $outputHeader += (get-date -format G) + "<br><h2>$newsection</h2>"                
+                    $outputHeader += (get-date -format G) + "<br><h2>$newsection</h2>"
                     $groupcolour = 'green'
                     # check for triggers
                     if ($script:clientlocalcfg_entries[$_] -ne $null)
@@ -4074,7 +4364,7 @@ function XymonLogSend()
                 $markslowscan = $checkparams[2]
             }
         }
-        elseif ($($script:loopcount) -eq 0)
+        elseif ($loopcount -eq 0)
         {
             if ($checkparams.length -ge 2)
             {
@@ -4088,7 +4378,7 @@ function XymonLogSend()
     $log = ((get-content $script:XymonSettings.clientlogfile) -join "`n")
     $log = [System.Web.HttpUtility]::HtmlEncode($log)
 
-    $output = (get-date -format G) + '<br><h2>Xymon client log</h2><pre>' 
+    $output = (get-date -format G) + '<br><h2>Xymon client log</h2><pre>'
     $output += $log
     $output += '</pre>'
 
@@ -4113,8 +4403,7 @@ if($args -eq "Install") {
     XymonClientInstall $MyInvocation.MyCommand.Definition
     $ret=1
 }
-if ($args -eq "uninstall")
-{
+if ($args -eq "uninstall") {
     XymonClientUnInstall
     $ret=1
 }
@@ -4143,6 +4432,11 @@ if($args -eq "Stop") {
     if((get-service $xymonsvcname).Status -eq "Running") { stop-service $xymonsvcname }
     return
 }
+if($args -eq "ping") {
+    $output = XymonSend "ping" $script:XymonSettings.serversList
+    $output
+    return
+}
 if($ret) {return}
 if($args -ne $null) {
     "Usage: "+ $MyInvocation.MyCommand.Definition +" install | uninstall | start | stop | config "
@@ -4162,13 +4456,16 @@ if (Test-Path -PathType Leaf $script:XymonSettings.clientconfigfile)
 }
 
 $lastcollectfile = join-path $script:XymonSettings.clientlogpath 'xymon-lastcollect.txt'
-$running = $true
 $script:collectionnumber = (0 -as [long])
-$loopcount = ($script:XymonSettings.slowscanrate - 1)
+if ( $script:slowscanrate -gt 0 ) {
+    $loopcount = Get-Random -Maximum ($script:slowscanrate)
+} else {
+    $loopcount = 0
+}
 
 AddHelperTypes
 
-while ($running -eq $true) {
+while ($true) {
     # log file setup/maintenance
     RotateLog $lastcollectfile
     RotateLog $script:XymonSettings.clientlogfile
@@ -4176,11 +4473,11 @@ while ($running -eq $true) {
         -Value "$clientname - $XymonClientVersion"
 
     $script:collectionnumber++
-    $loopcount++ 
+    $loopcount++
     $UTCstr = get-date -Date ((get-date).ToUniversalTime()) -uformat '%Y-%m-%d %H:%M:%S'
     WriteLog "UTC date/time: $UTCstr"
-    WriteLog "This is collection number $($script:collectionnumber), loop count $loopcount"
-    WriteLog "Next 'slow scan' is when loopcount reaches $($script:XymonSettings.slowscanrate)"
+    WriteLog "This is collection number $($script:collectionnumber), loopcount $($loopcount)"
+    WriteLog "Next 'slow scan' is when loopcount reaches $($script:slowscanrate)"
     if ($script:maxloop -gt 0)
     {
         WriteLog "XymonPSClient service will restart when loopcount greater than $($script:maxloop)"
@@ -4192,12 +4489,12 @@ while ($running -eq $true) {
 
     $starttime = Get-Date
     $slowscan = $false
-    
-    if ($loopcount -eq $script:XymonSettings.slowscanrate) { 
+
+    if ($loopcount -ge $script:slowscanrate) {
+        WriteLog "Doing slow scan tasks: $loopcount -ge $($script:slowscanrate)"
+
         $loopcount = 0
         $slowscan = $true
-        
-        WriteLog "Doing slow scan tasks"
 
         WriteLog "Executing XymonWMIQuickFixEngineering"
         $XymonWMIQuickFixEngineeringCache = XymonWMIQuickFixEngineering
@@ -4216,32 +4513,34 @@ while ($running -eq $true) {
         }
 
         WriteLog "Slow scan tasks completed."
+    } else {
+        WriteLog "Not doing slow scan tasks: loopcount ($loopcount) < slowscanrate ($($script:slowscanrate))"
     }
 
     XymonCollectInfo $slowscan
-    
+
     WriteLog "Performing main and optional tests and building output..."
-    $clout = "client $($clientname).$($script:XymonSettings.clientsoftware) $($script:XymonSettings.clientclass) XymonPS" | 
+    $clout = "client $($clientname).$($script:XymonSettings.clientsoftware) $($script:XymonSettings.clientclass) XymonPS" |
         Out-String
-    $clsecs = XymonClientSections $slowscan | Out-String
+    $clsecs = XymonClientSections $slowscan $loopcount | Out-String
     $localdatetime = Get-Date
     $clout += XymonDate | Out-String
     $clout += XymonClock | Out-String
     $clout +=  $clsecs
-    
+
     #XymonReportConfig >> $script:XymonSettings.clientlogfile
     WriteLog "Main and optional tests finished."
-    
+
     WriteLog "Sending to server"
     Set-Content -path $lastcollectfile -value $clout
-        
+
     $newconfig = XymonSend $clout $script:XymonSettings.serversList
 
     RepeatTests $clout
 
     XymonClientConfig $newconfig
     [GC]::Collect() # run every time to avoid memory bloat
-    
+
     #maybe check for update - only happens after a slow scan, when loopcount = 0
     if ($slowscan)
     {
@@ -4252,7 +4551,7 @@ while ($running -eq $true) {
     if ($script:collectionnumber -eq 1)
     {
         # if this is the very first collection, make the second collection happen sooner
-        # than the normal delay - this is because CPU usage is not collected on the 
+        # than the normal delay - this is because CPU usage is not collected on the
         # first run
         $delay = 30
     }

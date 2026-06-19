@@ -3852,7 +3852,7 @@ function DownloadAndVerify([string] $URI, [string] $name, [string] $path, `
         $result = XymonDownloadFromFile $URI $destination
     }
 
-    if ($result -ne $false -and $hashAlgorithm -ne $null)
+    if ($result -ne $false -and ![string]::IsNullOrEmpty($hashAlgorithm))
     {
         WriteLog "$($hashAlgorithm) hash specified, testing destination file"
         $fileHash = ''
